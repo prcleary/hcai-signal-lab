@@ -1,7 +1,10 @@
 // js/app.js
 
 import {
-  generateScenario
+  generateScenario,
+  APP_VERSION_CODE,
+  formatScenarioCode,
+  parseScenarioCode
 } from "./generator.js";
 
 import {
@@ -125,6 +128,8 @@ function collectElements() {
     "newScenarioButton",
     "scenarioHistorySelect",
     "difficultySelect",
+    "loadCodeInput",
+    "loadCodeButton",
     "downloadPngButton",
     "downloadCsvButton",
     "downloadRecordButton",
@@ -165,6 +170,28 @@ function addEventListeners() {
   elements.newScenarioButton.addEventListener(
     "click",
     startNewScenario
+  );
+
+  elements.loadCodeButton.addEventListener(
+    "click",
+    handleLoadByCode
+  );
+
+  elements.loadCodeInput.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleLoadByCode();
+      }
+    }
+  );
+
+  elements.loadCodeInput.addEventListener(
+    "input",
+    () => {
+      elements.loadCodeInput.classList.remove("is-invalid");
+    }
   );
 
   elements.scenarioHistorySelect.addEventListener(
@@ -820,7 +847,7 @@ function updateScenarioHeader() {
     `${scenario.surveillance.numeratorLabel} monitored using synthetic weekly hospital surveillance data.`;
 
   elements.scenarioCode.textContent =
-    scenario.id;
+    formatScenarioCode(scenario);
 
   elements.hospitalType.textContent =
     scenario.hospital.type;
@@ -1294,6 +1321,46 @@ function startNewScenario() {
   applyScenarioStateToControls();
   refreshHistoryDropdown();
   renderApplication();
+}
+
+function handleLoadByCode() {
+  const raw = elements.loadCodeInput.value;
+  const parsed = parseScenarioCode(raw);
+
+  if (!parsed) {
+    elements.loadCodeInput.classList.add("is-invalid");
+    elements.loadCodeInput.focus();
+    elements.loadCodeInput.select();
+    return;
+  }
+
+  elements.loadCodeInput.classList.remove("is-invalid");
+
+  if (parsed.version && parsed.version !== APP_VERSION_CODE) {
+    logAction("scenario-code-version-mismatch", {
+      entered: parsed.version,
+      current: APP_VERSION_CODE
+    });
+  }
+
+  scenario = generateScenario(
+    parsed.seed,
+    { difficulty: parsed.difficulty }
+  );
+
+  startNewStoredScenario(scenario);
+
+  logAction("loaded-scenario-code", {
+    code: formatScenarioCode(scenario)
+  });
+
+  populateMeasureControl();
+  populateLocationControls();
+  applyScenarioStateToControls();
+  refreshHistoryDropdown();
+  renderApplication();
+
+  elements.loadCodeInput.value = "";
 }
 
 function readSelectedDifficulty() {

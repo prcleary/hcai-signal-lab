@@ -9,7 +9,7 @@
 // this file is never used when the app is opened via file:// (which is
 // already offline by definition).
 
-const CACHE_VERSION = "v2-2026-07-23";
+const CACHE_VERSION = "v3-2026-07-22-load-by-code";
 const CACHE_NAME = `hcai-signal-lab-${CACHE_VERSION}`;
 
 // Explicit list of every asset the app needs to run. Keep this list in

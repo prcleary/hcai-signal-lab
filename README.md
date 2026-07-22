@@ -62,6 +62,12 @@ At the top of the page you will see:
   multi-site trust will have several sites to compare.
 - **Current view** — a plain-English summary of the location, measure
   and any filters currently applied.
+- **Scenario code** — a short identifier such as `v01-x-3f9a7c8b`
+  that uniquely identifies this scenario. Two people running the same
+  release who type the same code into **Load code** will see an
+  identical scenario, so it's useful for referring to a scenario in
+  discussion or handing one out in a workshop (see
+  [Sharing a scenario](#sharing-a-scenario)).
 
 > **HCAI** stands for **healthcare-associated infection** — an
 > infection that a patient acquires as a consequence of receiving
@@ -235,6 +241,26 @@ realistic mix.
 Previously answered scenarios remain in the **Past scenarios** menu on
 this device, so you can revisit your interpretation and the reveal at
 any time.
+
+#### Sharing a scenario
+
+Every scenario has a **scenario code** displayed in the header, e.g.
+`v01-x-3f9a7c8b`. Type or paste a code into the **Load code** box
+(top right) and press **Load code** (or Enter) to reproduce that
+scenario exactly on any device running the same release. The code
+encodes:
+
+- `v01` — the app's release line. Codes reproduce reliably within
+  the same release; a mismatched prefix is still loaded but may
+  produce different data.
+- `x` / `1` / `2` / `3` — the difficulty filter used to draw the
+  scenario (`x` = mixed).
+- the last segment — the random seed in hexadecimal.
+
+Useful for handing out a common scenario in a workshop, or for
+referring to "scenario `v01-x-3f9a7c8b`" in notes without needing
+screenshots. No data is transmitted — the code lets each learner's
+device regenerate the same synthetic series locally.
 
 ### 10. Analysis trail
 

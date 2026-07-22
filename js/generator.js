@@ -89,6 +89,83 @@ function generateSeed() {
 }
 
 /**
+ * Release-line identifier embedded in every displayed scenario code.
+ * Bump this whenever a change to the generator, topics or templates
+ * would cause the same seed to produce a different scenario. Two
+ * learners on the same version who enter the same code will see an
+ * identical scenario; a mismatched prefix warns that the code may
+ * not reproduce as intended.
+ */
+export const APP_VERSION_CODE = "v01";
+
+/**
+ * Format a scenario's identifier for display and sharing.
+ *
+ * Codes have the form `v01-<d>-<hex>` where `<d>` is the difficulty
+ * filter used at generation time (`x` = mixed, `1` = introductory,
+ * `2` = intermediate, `3` = advanced) and `<hex>` is the 32-bit
+ * seed in lower-case hex. Scenarios generated before this field was
+ * introduced display as `v01-x-<hex>`.
+ */
+export function formatScenarioCode(scenario) {
+  const d = scenario && scenario.generationDifficulty;
+  const dLetter =
+    d === 1 || d === 2 || d === 3 ? String(d) : "x";
+  const seedHex = Number(scenario.seed).toString(16);
+  return `${APP_VERSION_CODE}-${dLetter}-${seedHex}`;
+}
+
+/**
+ * Parse a user-entered scenario code. Returns `null` if the code is
+ * malformed. Accepts the current form (`v01-x-3f9a7c8b`), a
+ * version-less form (`x-3f9a7c8b`), and legacy hex-only or
+ * `scenario-<hex>` forms for backward compatibility.
+ */
+export function parseScenarioCode(text) {
+  if (typeof text !== "string") return null;
+  const raw = text.trim().toLowerCase().replace(/^scenario-/, "");
+  if (!raw) return null;
+
+  const parts = raw.split("-").filter(Boolean);
+  if (parts.length === 0 || parts.length > 3) return null;
+
+  let version = null;
+  let difficultyToken = null;
+  let seedHex = null;
+
+  if (parts.length === 3) {
+    [version, difficultyToken, seedHex] = parts;
+  } else if (parts.length === 2) {
+    [difficultyToken, seedHex] = parts;
+  } else {
+    [seedHex] = parts;
+  }
+
+  if (!/^[0-9a-f]{1,8}$/.test(seedHex)) return null;
+  const seed = parseInt(seedHex, 16);
+  if (!Number.isInteger(seed) || seed < 0 || seed > 0xFFFFFFFF) {
+    return null;
+  }
+
+  let difficulty = null;
+  if (difficultyToken == null || difficultyToken === "x") {
+    difficulty = null;
+  } else if (
+    difficultyToken === "1" ||
+    difficultyToken === "2" ||
+    difficultyToken === "3"
+  ) {
+    difficulty = Number(difficultyToken);
+  } else {
+    return null;
+  }
+
+  if (version != null && !/^v\d{1,3}$/.test(version)) return null;
+
+  return { seed, difficulty, version };
+}
+
+/**
  * Approximate Poisson generator.
  */
 function randomPoisson(random, lambda) {
@@ -1214,10 +1291,18 @@ export function generateScenario(seed = generateSeed(), options = {}) {
     ? formatDate(addDays(startDate, changePoint * 7))
     : null;
 
+  const generationDifficulty =
+    options.difficulty === 1 ||
+    options.difficulty === 2 ||
+    options.difficulty === 3
+      ? options.difficulty
+      : null;
+
   return {
     schemaVersion: 4,
     id: `scenario-${seed.toString(16)}`,
     seed,
+    generationDifficulty,
     generatedAt: new Date().toISOString(),
 
     hospital,

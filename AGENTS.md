@@ -169,7 +169,7 @@ The user is on **Windows PowerShell 5.1**.
   ```powershell
   node tests/scenarios.smoke.mjs
   ```
-  It should print `56877/56877 checks passed` (numbers may grow as
+  It should print `56916/56916 checks passed` (numbers may grow as
   topics or templates are added — never shrink without justification).
 - When editing a file that must be available offline, remember to
   update `PRECACHE_URLS` and bump `CACHE_VERSION` in

@@ -137,6 +137,26 @@ a {
   cursor: not-allowed;
 }
 
+.header-input {
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  font: inherit;
+  color: var(--text);
+  min-width: 20ch;
+}
+
+.header-input:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.header-input.is-invalid {
+  border-color: #c62828;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

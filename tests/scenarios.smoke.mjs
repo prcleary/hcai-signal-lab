@@ -37,12 +37,21 @@
 //   21.  Nelson rule 4 (eight consecutive on one side of centre) fires.
 //   22.  aggregatePoints preserves numerator / denominator totals.
 //   23.  selectControlChart auto-select maps measure -> chart type.
+//   24.  Scenario code round-trip: formatScenarioCode(scenario) ->
+//        parseScenarioCode() recovers the seed, difficulty and
+//        current APP_VERSION_CODE; legacy and version-less forms
+//        parse correctly; malformed codes return null.
 //
 // The test is intentionally lightweight; it fails fast on the first
 // broken invariant. Use `node --test` style output only if this file
 // grows further.
 
-import { generateScenario } from "../js/generator.js";
+import {
+  generateScenario,
+  APP_VERSION_CODE,
+  formatScenarioCode,
+  parseScenarioCode
+} from "../js/generator.js";
 import { SURVEILLANCE_TOPICS } from "../js/topics.js";
 import { SCENARIO_TEMPLATES } from "../js/templates.js";
 import {
@@ -905,6 +914,102 @@ assert(
 assert(
   selectControlChart("none", dummySurveillance, "count") === "none",
   "explicit 'none' must be preserved"
+);
+
+// --- 24. Scenario code round-trip ------------------------------------
+
+const codeRoundTripCases = [
+  { seed: 1, difficulty: null },
+  { seed: 42, difficulty: 1 },
+  { seed: 1729, difficulty: 2 },
+  { seed: 987654, difficulty: 3 },
+  { seed: 0xffffffff, difficulty: null }
+];
+
+for (const { seed, difficulty } of codeRoundTripCases) {
+  const generated = generateScenario(seed, { difficulty });
+  assert(
+    generated.generationDifficulty === difficulty,
+    `scenario.generationDifficulty should be ${difficulty}, got ${generated.generationDifficulty}`
+  );
+
+  const code = formatScenarioCode(generated);
+  const parsed = parseScenarioCode(code);
+
+  assert(
+    parsed !== null,
+    `formatted code ${code} must parse back`
+  );
+  assert(
+    parsed.seed === seed,
+    `round-trip seed: expected ${seed}, got ${parsed && parsed.seed}`
+  );
+  assert(
+    parsed.difficulty === difficulty,
+    `round-trip difficulty: expected ${difficulty}, got ${parsed && parsed.difficulty}`
+  );
+  assert(
+    parsed.version === APP_VERSION_CODE,
+    `round-trip version: expected ${APP_VERSION_CODE}, got ${parsed && parsed.version}`
+  );
+}
+
+// Accept legacy hex-only form (assume mixed difficulty, no version).
+const legacyOnly = parseScenarioCode("3f9a7c8b");
+assert(
+  legacyOnly !== null &&
+    legacyOnly.seed === 0x3f9a7c8b &&
+    legacyOnly.difficulty === null &&
+    legacyOnly.version === null,
+  "legacy hex-only code should parse with null difficulty and null version"
+);
+
+// Accept legacy scenario- prefix.
+const legacyPrefixed = parseScenarioCode("scenario-3f9a7c8b");
+assert(
+  legacyPrefixed !== null &&
+    legacyPrefixed.seed === 0x3f9a7c8b,
+  "legacy scenario- prefix should parse"
+);
+
+// Accept version-less compact form.
+const versionless = parseScenarioCode("2-3f9a7c8b");
+assert(
+  versionless !== null &&
+    versionless.seed === 0x3f9a7c8b &&
+    versionless.difficulty === 2 &&
+    versionless.version === null,
+  "version-less form should parse difficulty and seed"
+);
+
+// Malformed inputs must return null.
+const malformed = [
+  "",
+  "not-a-code",
+  "v01-4-3f9a7c8b", // difficulty 4 is invalid
+  "v01-x-zzzzzzzz", // non-hex seed
+  "v01-x-", // empty seed
+  "v01-x-3f9a7c8b-extra", // too many segments
+  "v01-x-1ffffffff", // seed > 32-bit
+  null,
+  undefined,
+  123
+];
+for (const bad of malformed) {
+  assert(
+    parseScenarioCode(bad) === null,
+    `malformed code ${JSON.stringify(bad)} must parse to null`
+  );
+}
+
+// Case-insensitive and whitespace-tolerant.
+const untidy = parseScenarioCode("  V01-X-3F9A7C8B  ");
+assert(
+  untidy !== null &&
+    untidy.seed === 0x3f9a7c8b &&
+    untidy.difficulty === null &&
+    untidy.version === "v01",
+  "code parsing should tolerate case and surrounding whitespace"
 );
 
 // --- Report ------------------------------------------------------------
