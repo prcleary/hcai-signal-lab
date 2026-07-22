@@ -22,7 +22,7 @@
 
 import { TOPIC_GROUPS } from "./topics.js";
 
-const { ALL_BACTERAEMIA, COMMON_BACTERAEMIA, SCREENING, RESPIRATORY, WITH_SUBTYPES } =
+const { ALL_BACTERAEMIA, COMMON_BACTERAEMIA, SCREENING, RESPIRATORY, DEVICE_DAYS, PROCEDURE_COHORT, WITH_SUBTYPES } =
   TOPIC_GROUPS;
 
 export const SCENARIO_TEMPLATES = [
@@ -180,6 +180,33 @@ export const SCENARIO_TEMPLATES = [
     difficulty: 3,
     category: "epidemiology",
     appliesTo: [...WITH_SUBTYPES]
+  },
+
+  // --- Device / procedure-cohort templates --------------------------
+
+  {
+    id: "care-bundle-intervention",
+    name: "Care-bundle intervention",
+    difficulty: 2,
+    category: "epidemiology",
+    // The classic "our new bundle worked" story. Applies broadly to
+    // any HAI that a care bundle would target: device-associated,
+    // surgical-site, and bacteraemia.
+    appliesTo: [
+      ...COMMON_BACTERAEMIA,
+      ...DEVICE_DAYS,
+      ...PROCEDURE_COHORT
+    ]
+  },
+  {
+    id: "procedure-mix-shift",
+    name: "Procedure case-mix shift",
+    difficulty: 3,
+    category: "surveillance-behaviour",
+    // A shift towards more complex / higher-risk procedures (e.g. more
+    // emergency colorectal, more redo cardiac) lifts SSI rates without
+    // any change in process.
+    appliesTo: [...PROCEDURE_COHORT]
   }
 ];
 
@@ -207,7 +234,9 @@ export const CHANGE_POINT_POSITIONS = {
   "respiratory-ward-cluster": 0.60,
   "respiratory-definition-cutoff": 0.55,
   "subtype-emergence": 0.50,
-  "subtype-displacement": 0.45
+  "subtype-displacement": 0.45,
+  "care-bundle-intervention": 0.55,
+  "procedure-mix-shift": 0.55
 };
 
 /**
@@ -277,6 +306,12 @@ export function createExplanation(template, context = {}) {
 
     case "subtype-displacement":
       return "The previously dominant subtype was gradually displaced by a challenger subtype. The total numerator was unchanged, so an unfiltered view looks flat. Applying the subtype filter to either the dominant or the challenger reveals the crossover.";
+
+    case "care-bundle-intervention":
+      return "A care-bundle intervention was implemented at the change point. The underlying rate steps down by roughly a half over three to four weeks and then remains at the lower level. Total counts and rate both fall.";
+
+    case "procedure-mix-shift":
+      return "The mix of procedures shifted toward higher-risk cases (more emergency, more complex, more redo work) around the change point. The SSI rate rises even though nothing has changed in the surgical or infection-prevention process. Denominators do not fall as much as with a true intervention.";
 
     default:
       return "The change is described by the template metadata; explore the ward and time-window controls to characterise it.";

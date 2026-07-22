@@ -19,10 +19,22 @@
 //                        well as the total `numerator`; the display-time
 //                        HAI cutoff selector decides which bins are
 //                        summed for the plotted metric.
+//   device-days          Weekly device-associated infections with a
+//                        device-days denominator (catheter-days for
+//                        CAUTI, central-line-days for CLABSI). Rate is
+//                        expressed per 1,000 device-days per the ECDC /
+//                        NHSN convention. Device utilisation ratio is
+//                        applied to the trust's bed-days to produce a
+//                        realistic denominator.
+//   procedure-cohort     Weekly SSI count with a procedures-performed
+//                        denominator. Rate is a percentage of
+//                        procedures. Suits mandatory surgical-site
+//                        infection surveillance (colorectal, cardiac).
 //
 // Rates are per rateMultiplier units of the denominator (so 10,000
-// bed-days for bacteraemia, and per 100 screened patients / percentage
-// positive for screening).
+// bed-days for bacteraemia, 1,000 device-days for CAUTI / CLABSI, and
+// per 100 screened patients / percentage positive for screening and
+// SSI).
 //
 // Baseline rates are broadly aligned with published UK figures but have
 // been rounded to give visible weekly signals on a mid-sized trust
@@ -267,6 +279,94 @@ export const SURVEILLANCE_TOPICS = {
       probableHAI: 0.08,
       definiteHAI: 0.04
     }
+  },
+
+  // -------------------------------------------------------------------
+  // Device-associated infection topics (surveillance kind
+  // "device-days"). Denominator is the number of device-days -- the
+  // number of days each catheter or central line was in place, summed
+  // across all patients over the reporting period. Rate is per 1,000
+  // device-days per NHSN / ECDC convention.
+  //
+  // `deviceUtilisationRatio` is the average fraction of bed-days on
+  // which the device is in place. The generator multiplies the trust's
+  // bed-days by this ratio to produce weekly device-days.
+  // -------------------------------------------------------------------
+
+  CAUTI: {
+    code: "CAUTI",
+    surveillanceKind: "device-days",
+    organism: "Catheter-associated urinary tract infection",
+    shortName: "CAUTI",
+    availableMeasures: ["count", "rate"],
+    defaultMeasure: "rate",
+    numeratorLabel: "CAUTI cases",
+    denominatorLabel: "Catheter-days",
+    rateMultiplier: 1000,
+    recommendedChart: "u",
+    // Roughly 3 CAUTI per 1,000 catheter-days at baseline.
+    baselineRate: 0.003,
+    deviceUtilisationRatio: 0.22
+  },
+
+  CLABSI: {
+    code: "CLABSI",
+    surveillanceKind: "device-days",
+    organism: "Central-line-associated bloodstream infection",
+    shortName: "CLABSI",
+    availableMeasures: ["count", "rate"],
+    defaultMeasure: "rate",
+    numeratorLabel: "CLABSI cases",
+    denominatorLabel: "Central-line-days",
+    rateMultiplier: 1000,
+    recommendedChart: "u",
+    // Roughly 1.5 CLABSI per 1,000 line-days at baseline.
+    baselineRate: 0.0015,
+    deviceUtilisationRatio: 0.13
+  },
+
+  // -------------------------------------------------------------------
+  // Surgical-site infection topics (surveillance kind
+  // "procedure-cohort"). Denominator is the number of index procedures
+  // performed in the period; numerator is the number of those
+  // procedures followed by an SSI within the surveillance window
+  // (typically 30 days, 90 for implant surgery). Rate is a percentage
+  // of procedures.
+  //
+  // `proceduresPerWeek` is the typical weekly volume across the trust,
+  // used to seed the denominator.
+  // -------------------------------------------------------------------
+
+  SSICOLO: {
+    code: "SSICOLO",
+    surveillanceKind: "procedure-cohort",
+    organism: "SSI following colorectal surgery",
+    shortName: "SSI (colorectal)",
+    availableMeasures: ["count", "proportion"],
+    defaultMeasure: "proportion",
+    numeratorLabel: "SSI cases",
+    denominatorLabel: "Colorectal procedures",
+    rateMultiplier: 100,
+    recommendedChart: "p",
+    // ~8 % of colorectal procedures develop an SSI at baseline.
+    baselineRate: 0.08,
+    proceduresPerWeek: 22
+  },
+
+  SSICARD: {
+    code: "SSICARD",
+    surveillanceKind: "procedure-cohort",
+    organism: "SSI following cardiac surgery",
+    shortName: "SSI (cardiac)",
+    availableMeasures: ["count", "proportion"],
+    defaultMeasure: "proportion",
+    numeratorLabel: "SSI cases",
+    denominatorLabel: "Cardiac procedures",
+    rateMultiplier: 100,
+    recommendedChart: "p",
+    // ~3 % of cardiac procedures develop an SSI at baseline.
+    baselineRate: 0.03,
+    proceduresPerWeek: 14
   }
 };
 
@@ -314,6 +414,12 @@ export const TOPIC_GROUPS = {
 
   // Respiratory nosocomial-classification topics.
   RESPIRATORY: ["COVID", "INFA", "RSV"],
+
+  // Device-associated infection topics.
+  DEVICE_DAYS: ["CAUTI", "CLABSI"],
+
+  // Procedure-cohort SSI topics.
+  PROCEDURE_COHORT: ["SSICOLO", "SSICARD"],
 
   // Topics that carry a `subtypes` list (used by the subtype-emergence
   // and subtype-displacement templates and by the UI subtype filter).

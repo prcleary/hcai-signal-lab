@@ -254,11 +254,20 @@ function populateMeasureControl() {
 
   elements.measureSelect.replaceChildren();
 
+  // For procedure-cohort SSI topics "Percentage positive" reads as a
+  // microbiology screen result rather than a surgical outcome, so use
+  // "Proportion with SSI" instead. Other topics use the historical
+  // labels.
+  const proportionLabel =
+    surveillance.surveillanceKind === "procedure-cohort"
+      ? "Proportion with SSI"
+      : "Percentage positive";
+
   const labels = {
     count: "Count",
     rate:
       `Rate per ${surveillance.rateMultiplier.toLocaleString("en-GB")}`,
-    proportion: "Percentage positive"
+    proportion: proportionLabel
   };
 
   for (
@@ -1362,6 +1371,9 @@ function getYAxisTitle(measure, aggregation) {
   }
 
   if (measure === "proportion") {
+    if (surveillance.surveillanceKind === "procedure-cohort") {
+      return `Percentage of ${surveillance.denominatorLabel.toLowerCase()} developing SSI`;
+    }
     return `Percentage positive of ${surveillance.denominatorLabel.toLowerCase()}`;
   }
 

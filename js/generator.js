@@ -372,6 +372,28 @@ function getScenarioMultiplier({
       return 1 + 0.35 * Math.cos(seasonalPosition * Math.PI * 2);
     }
 
+    case "care-bundle-intervention": {
+      // Bundle takes ~4 weeks to reach full effect, then rate stays at
+      // roughly half the baseline. Modelled as an exponential decay
+      // toward the target 0.5x.
+      if (weekIndex < changePoint) return 1;
+
+      const weeksSince = weekIndex - changePoint;
+      const rampProgress = Math.min(1, weeksSince / 4);
+      // Linearly interpolate from 1 down to 0.5.
+      return 1 - 0.5 * rampProgress;
+    }
+
+    case "procedure-mix-shift": {
+      // Case-mix shifts toward higher-risk procedures over ~6 weeks,
+      // lifting the SSI risk to roughly 2x baseline and staying there.
+      if (weekIndex < changePoint) return 1;
+
+      const weeksSince = weekIndex - changePoint;
+      const rampProgress = Math.min(1, weeksSince / 6);
+      return 1 + rampProgress; // ramp from 1 up to 2
+    }
+
     default:
       return 1;
   }
@@ -686,6 +708,151 @@ function partitionBySubtype({
   return counts;
 }
 
+/**
+ * Device-associated infection generator (CAUTI, CLABSI).
+ *
+ * Denominator = deviceUtilisationRatio * wardBedDays, with mild noise.
+ * A denominator-change template halves the denominator; a ward-closure
+ * template collapses the denominator on the affected ward. The
+ * numerator is Poisson-distributed around baselineRate * denominator *
+ * ward.risk * scenarioMultiplier, then subjected to the usual
+ * reporting-artefact treatment.
+ */
+function generateDeviceDaysObservation({
+  random,
+  topic,
+  template,
+  ward,
+  wardBedDays,
+  weekIndex,
+  totalWeeks,
+  afterChange,
+  date,
+  affectedWard,
+  scenarioMultiplier
+}) {
+  // Base device-days = utilisation ratio * bed-days, with +/- 15 %
+  // noise so the denominator is not constant.
+  const utilisationRatio = topic.deviceUtilisationRatio || 0.2;
+  const noiseFactor = 0.85 + random() * 0.3;
+  let deviceDays = Math.max(
+    1,
+    Math.round(wardBedDays * utilisationRatio * noiseFactor)
+  );
+
+  if (template.id === "denominator-change" && afterChange) {
+    deviceDays = Math.max(1, Math.round(deviceDays * 0.55));
+  }
+
+  if (
+    template.id === "ward-closure" &&
+    afterChange &&
+    ward.name === affectedWard
+  ) {
+    deviceDays = Math.max(1, Math.round(deviceDays * 0.05));
+  }
+
+  const expectedCases =
+    topic.baselineRate *
+    deviceDays *
+    ward.risk *
+    scenarioMultiplier;
+
+  const rawNumerator = randomPoisson(random, expectedCases);
+
+  const numerator = applyReportingArtefact(
+    rawNumerator,
+    template,
+    weekIndex,
+    totalWeeks
+  );
+
+  return {
+    date: formatDate(date),
+    site: ward.site,
+    ward: ward.name,
+    numerator,
+    denominator: deviceDays,
+    bedDays: wardBedDays
+  };
+}
+
+/**
+ * Procedure-cohort SSI generator (SSICOLO, SSICARD).
+ *
+ * Denominator = number of index procedures performed on that ward in
+ * the week (Poisson around the topic's proceduresPerWeek / ward count).
+ * Numerator = binomial (procedures, baselineRate * ward.risk *
+ * scenarioMultiplier). Only wards that actually do this kind of
+ * surgery contribute non-zero procedures; the generator uses a simple
+ * name-based heuristic (Surgery / Cardiac / Orthopaedics) to keep the
+ * scenario realistic.
+ */
+function generateProcedureCohortObservation({
+  random,
+  topic,
+  template,
+  ward,
+  wardBedDays,
+  weekIndex,
+  totalWeeks,
+  afterChange,
+  date,
+  scenarioMultiplier
+}) {
+  const wardName = ward.name.toLowerCase();
+  const doesSurgery =
+    wardName.includes("surger") ||
+    wardName.includes("orthop") ||
+    wardName.includes("cardiac") ||
+    wardName.includes("critical");
+
+  if (!doesSurgery) {
+    return {
+      date: formatDate(date),
+      site: ward.site,
+      ward: ward.name,
+      numerator: 0,
+      denominator: 0,
+      bedDays: wardBedDays
+    };
+  }
+
+  const perWardMean =
+    (topic.proceduresPerWeek || 10) / 3; // three surgical wards
+  let procedures = randomPoisson(random, perWardMean);
+
+  if (template.id === "denominator-change" && afterChange) {
+    procedures = Math.max(0, Math.round(procedures * 0.55));
+  }
+
+  let infectionRisk =
+    topic.baselineRate * ward.risk * scenarioMultiplier;
+  infectionRisk = Math.min(0.6, infectionRisk);
+
+  const rawNumerator = randomBinomial(
+    random,
+    procedures,
+    infectionRisk
+  );
+
+  const numerator = applyReportingArtefact(
+    rawNumerator,
+    template,
+    weekIndex,
+    totalWeeks
+  );
+
+  return {
+    date: formatDate(date),
+    site: ward.site,
+    ward: ward.name,
+    numerator,
+    denominator: procedures,
+    bedDays: wardBedDays
+  };
+}
+
 function generateWeeklyObservation({
   random,
   topic,
@@ -733,6 +900,37 @@ function generateWeeklyObservation({
       afterChange,
       date,
       affectedWard,
+      scenarioMultiplier
+    });
+  }
+
+  if (topic.surveillanceKind === "device-days") {
+    return generateDeviceDaysObservation({
+      random,
+      topic,
+      template,
+      ward,
+      wardBedDays,
+      weekIndex,
+      totalWeeks,
+      afterChange,
+      date,
+      affectedWard,
+      scenarioMultiplier
+    });
+  }
+
+  if (topic.surveillanceKind === "procedure-cohort") {
+    return generateProcedureCohortObservation({
+      random,
+      topic,
+      template,
+      ward,
+      wardBedDays,
+      weekIndex,
+      totalWeeks,
+      afterChange,
+      date,
       scenarioMultiplier
     });
   }

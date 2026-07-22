@@ -446,6 +446,71 @@ assert(
   `respiratory subtype filter should scale definiteHAI bin to 1, got ${respFiltered[0].onsetBins.definiteHAI}`
 );
 
+// --- 13. Device / procedure-cohort topics generate valid scenarios ----
+
+const deviceProcedureCodes = ["CAUTI", "CLABSI", "SSICOLO", "SSICARD"];
+const seenDeviceProcTopics = new Set();
+
+for (let seed = 1; seed <= 8000 && seenDeviceProcTopics.size < deviceProcedureCodes.length; seed += 1) {
+  const scenario = generateScenario(seed);
+
+  if (!deviceProcedureCodes.includes(scenario.surveillance.code)) continue;
+  if (seenDeviceProcTopics.has(scenario.surveillance.code)) continue;
+
+  seenDeviceProcTopics.add(scenario.surveillance.code);
+
+  // Every observation must have finite non-negative numerator and denominator.
+  for (const obs of scenario.observations) {
+    assert(
+      Number.isFinite(obs.numerator) && obs.numerator >= 0,
+      `${scenario.surveillance.code}: numerator must be finite and non-negative (got ${obs.numerator})`
+    );
+    assert(
+      Number.isFinite(obs.denominator) && obs.denominator >= 0,
+      `${scenario.surveillance.code}: denominator must be finite and non-negative (got ${obs.denominator})`
+    );
+
+    // For procedure-cohort, numerator cannot exceed denominator.
+    if (scenario.surveillance.surveillanceKind === "procedure-cohort") {
+      assert(
+        obs.numerator <= obs.denominator + 5, // small allowance for reporting-artefact draws
+        `${scenario.surveillance.code}: SSI numerator (${obs.numerator}) should not exceed procedures + reporting allowance (${obs.denominator})`
+      );
+    }
+  }
+
+  // Denominator must be non-zero somewhere in the series.
+  const totalDenominator = scenario.observations.reduce(
+    (sum, obs) => sum + obs.denominator,
+    0
+  );
+  assert(
+    totalDenominator > 0,
+    `${scenario.surveillance.code}: total denominator across all observations must be > 0`
+  );
+}
+
+for (const code of deviceProcedureCodes) {
+  assert(
+    seenDeviceProcTopics.has(code),
+    `no ${code} scenario produced in 8000 seeds`
+  );
+}
+
+// --- 14. Stage-7 templates are produced -------------------------------
+
+for (const templateId of ["care-bundle-intervention", "procedure-mix-shift"]) {
+  let seen = false;
+  for (let seed = 1; seed <= 8000 && !seen; seed += 1) {
+    const scenario = generateScenario(seed);
+    if (scenario.groundTruth.templateId === templateId) seen = true;
+  }
+  assert(
+    seen,
+    `no ${templateId} scenario produced in 8000 seeds`
+  );
+}
+
 // --- Report ------------------------------------------------------------
 
 console.log(

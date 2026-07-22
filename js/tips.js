@@ -276,6 +276,32 @@ export const INVESTIGATION_TIPS = {
       "Report the crossover with both subtype series shown. Discuss the clinical and IPC implications with microbiology and IPC \u2014 for CPE this may prompt review of empirical antimicrobials; for respiratory viruses it may prompt updated vaccine or treatment guidance.",
     falseAlarm:
       "Concluding \u201cno signal\u201d from the aggregate view when a clinically important compositional shift is happening underneath. Also \u2014 attributing displacement to an intervention when it is actually a typing-method change."
+  },
+
+  "care-bundle-intervention": {
+    pattern:
+      "A sustained step-down in both the count and the rate, appearing roughly three to four weeks after a documented intervention. The step is stable at the new lower level; denominators (device-days or procedures) are broadly unchanged so the rate falls by the same fraction as the count.",
+    verify:
+      "Overlay the intervention date on the chart. Confirm that the drop is sustained across at least eight to twelve weeks and appears on both the count and the rate views. Cross-check the denominator series (bed-days, device-days or procedures) has not moved \u2014 if it has, consider a denominator artefact rather than an intervention effect.",
+    differential:
+      "A denominator collapse (fewer catheters used, fewer procedures performed) can look identical on the count view but leaves the rate unchanged. A definition tightening or reporting artefact can also produce a sustained step-down; verify the definition and reporting pathway did not change at the same time. Regression to the mean after an outbreak can mimic a bundle effect.",
+    action:
+      "Report the intervention with pre- and post-bundle rates and confidence intervals. Continue monitoring for sustained effect over the next six months. Feed back to the delivery team and consider spread to other services if the effect is confirmed.",
+    falseAlarm:
+      "Claiming a bundle effect from a single-week drop, or from a denominator artefact. Also \u2014 taking credit for regression to the mean after a preceding outbreak."
+  },
+
+  "procedure-mix-shift": {
+    pattern:
+      "A sustained step-up or gradual rise in SSI proportion without a corresponding rise in absolute count. The procedure count denominator may be similar or slightly reduced. The rate rises because more of the procedures being done are higher-risk (emergency, redo, high-complexity).",
+    verify:
+      "Ask theatres and the clinical service for a case-mix breakdown across the change point: elective vs emergency, primary vs redo, ASA grade distribution, wound-class distribution. A shift toward higher-acuity cases explains a rise in SSI proportion without an IPC process change.",
+    differential:
+      "A real process failure (skin prep, antibiotic prophylaxis timing, sterilisation) would raise SSI rates within each case-mix stratum. Stratified analysis by procedure complexity separates the two. A change in SSI definition or surveillance intensity can also mimic a rise.",
+    action:
+      "Report the aggregate rise but with a case-mix-stratified view alongside. Discuss with theatres whether the rise reflects service reconfiguration (e.g. tertiary transfers, weekend emergency uplift). Do not launch an IPC investigation without stratifying first.",
+    falseAlarm:
+      "Attributing a case-mix-driven rise to an IPC or surgical process failure, and launching a full look-back / peer review when the fix is either (a) accepting the higher rate as appropriate for the mix, or (b) rebalancing the mix if that is possible."
   }
 };
 

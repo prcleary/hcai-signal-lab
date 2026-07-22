@@ -272,6 +272,9 @@ function measureLabel(measure, surveillance) {
   }
 
   if (measure === "proportion") {
+    if (surveillance?.surveillanceKind === "procedure-cohort") {
+      return "Proportion with SSI";
+    }
     return "Percentage positive";
   }
 
