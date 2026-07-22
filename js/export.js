@@ -165,6 +165,41 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+/**
+ * Render the five investigation-tip sections for the exported learning
+ * record. Backward compatible with the pre-5-field object shape (which
+ * used `lookFor` and `verify`) so learning records saved from older
+ * versions of the app still render sensibly if replayed.
+ */
+function renderInvestigationTipSections(tip) {
+  if (!tip) return "";
+
+  // Legacy 2-field shape.
+  if (tip.lookFor || (tip.verify && !tip.pattern)) {
+    return `
+      <h3>What the intended pattern should look like</h3>
+      <p>${escapeHtml(tip.lookFor ?? "")}</p>
+      <h3>How to check it with the tools available</h3>
+      <p>${escapeHtml(tip.verify ?? "")}</p>`;
+  }
+
+  const sections = [
+    ["Pattern to look for", tip.pattern],
+    ["How to verify", tip.verify],
+    ["What could look similar", tip.differential],
+    ["Appropriate action", tip.action],
+    ["Common false-alarm cause", tip.falseAlarm]
+  ];
+
+  return sections
+    .filter(([, body]) => body)
+    .map(
+      ([heading, body]) =>
+        `<h3>${escapeHtml(heading)}</h3><p>${escapeHtml(body)}</p>`
+    )
+    .join("");
+}
+
 function formatIsoDateShort(dateString) {
   if (!dateString) return "";
 
@@ -334,11 +369,7 @@ function buildLearningRecordHtml({
       </dl>
       ${
         investigationTip
-          ? `
-        <h3>What the intended pattern should look like</h3>
-        <p>${escapeHtml(investigationTip.lookFor)}</p>
-        <h3>How to check it with the tools available</h3>
-        <p>${escapeHtml(investigationTip.verify)}</p>`
+          ? renderInvestigationTipSections(investigationTip)
           : ""
       }`
     : `

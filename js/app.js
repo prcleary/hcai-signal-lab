@@ -29,95 +29,16 @@ import {
   exportLearningRecordAsHtml
 } from "./export.js";
 
+import {
+  resolveInvestigationTip
+} from "./tips.js";
+
 /**
- * Per-template investigation guidance shown in the reveal panel.
- * `lookFor` describes what the intended pattern should look like on the
- * chart. `verify` describes how the learner can check it using the tools
- * available in the app.
+ * Per-template investigation guidance is defined in js/tips.js as a
+ * five-field schema (pattern, verify, differential, action, falseAlarm)
+ * so the reveal panel and the exported learning-record HTML can render
+ * consistent structured learning points for every template.
  */
-const INVESTIGATION_TIPS = {
-  "common-cause": {
-    lookFor:
-      "There is no underlying shift. Points wander either side of the centre line within the control limits. Occasional excursions beyond \u00b13\u03c3 can still happen by chance, especially at low counts.",
-    verify:
-      "Try longer aggregation (four-weekly or quarterly) and different ward filters. If nothing consistent appears, the process is behaving as a stable one."
-  },
-  "single-extreme": {
-    lookFor:
-      "One isolated point above the upper 3-SD limit. All other observations sit comfortably inside the limits.",
-    verify:
-      "Look at the weeks either side of the outlier; a genuine change would usually persist. Consider known events (audits, ward moves, mass screening) that could explain a single spike."
-  },
-  "step-increase": {
-    lookFor:
-      "A sustained shift upward in the recent part of the series. Look for eight consecutive points on one side of the centre line as well as individual points beyond \u00b13\u03c3.",
-    verify:
-      "Compare the mean of the last ~10 weeks against the baseline. Switch to a longer time period (2 years or all data) to see the full step clearly."
-  },
-  "gradual-trend": {
-    lookFor:
-      "A slow upward drift rather than a step. The eight-in-a-row rule tends to trigger before individual points cross the 3-SD limits.",
-    verify:
-      "Apply moving-mean smoothing and view the longest time period. A CUSUM or EWMA chart would detect a drift earlier than a Shewhart chart."
-  },
-  "local-outbreak": {
-    lookFor:
-      "At hospital level the signal is diluted across many wards. Filtering to the affected ward should reveal a short run of unusually high weeks.",
-    verify:
-      "Change the Ward filter one ward at a time. A funnel plot or league table across wards for the affected period would highlight the outlier ward directly."
-  },
-  "seasonality": {
-    lookFor:
-      "A repeating pattern of higher and lower periods across the year. Fixed limits derived from a whole-year baseline may flag predictable peaks as 'signals'.",
-    verify:
-      "Aggregate to quarterly and view the longest time period. Compare the same weeks in successive years to see whether peaks recur at the same time."
-  },
-  "screening-expansion": {
-    lookFor:
-      "The count of positives rises after the change point, but the proportion positive stays broadly stable.",
-    verify:
-      "Switch the Measure between 'Count' and 'Percentage positive'. If count rises while proportion stays flat, more testing \u2014 not more disease \u2014 is driving the change."
-  },
-  "targeted-screening": {
-    lookFor:
-      "Proportion positive rises after the change point, even though the number of patients screened has fallen.",
-    verify:
-      "Compare Count and Percentage positive side by side. A rise in positivity without an increase in cases often reflects a change in who is being screened rather than a rise in prevalence."
-  },
-  "denominator-change": scenario => {
-    // Adapt the wording to the topic actually in play: only CPE offers a
-    // 'Percentage positive' measure; CDI and E. coli present a rate
-    // instead. Recommending a measure the learner cannot select would be
-    // confusing.
-    const measures =
-      scenario?.surveillance?.availableMeasures || [];
-    const hasProportion = measures.includes("proportion");
-    const hasRate = measures.includes("rate");
-
-    const alternativeControl = hasProportion
-      ? "'Percentage positive'"
-      : hasRate
-        ? "'Rate'"
-        : "the alternative measure";
-
-    const alternativeName = hasProportion
-      ? "the proportion"
-      : "the rate";
-
-    return {
-      lookFor:
-        "The number of cases falls after the change point, but so does the underlying activity (bed-days or screened patients). The rate or proportion stays broadly stable.",
-      verify:
-        `Switch the Measure between 'Count' and ${alternativeControl}. If the count moves but ${alternativeName} does not, the change is in the denominator.`
-    };
-  },
-  "reporting-artefact": {
-    lookFor:
-      "The most recent 2\u20133 weeks look unusually LOW, and there is often a lone unusually HIGH week roughly five weeks earlier (a batch of overdue reports arriving together).",
-    verify:
-      "Do not treat the recent dip as an improvement. Wait for reporting to catch up before drawing conclusions, and where possible check the raw report-received dates rather than the specimen dates."
-  }
-};
 
 let scenario;
 let currentAnalysis;
@@ -867,25 +788,6 @@ function setSignalSummaryCount(total) {
     `\u2014 ${total} ${total === 1 ? "signal" : "signals"}`;
 }
 
-/**
- * Resolves the reveal-time investigation tip for a scenario. Some tips
- * are plain objects; others are functions that adapt to the topic in
- * play (for example, only mentioning 'Percentage positive' when the
- * scenario's surveillance topic actually offers a proportion measure).
- */
-function resolveInvestigationTip(scenario) {
-  const templateId = scenario?.groundTruth?.templateId;
-  const entry = INVESTIGATION_TIPS[templateId];
-
-  if (!entry) return null;
-
-  if (typeof entry === "function") {
-    return entry(scenario);
-  }
-
-  return entry;
-}
-
 function handleInterpretationChange(event) {
   // Update in-memory state on every change so the reveal-gate reflects
   // the current answer + notes length, but only persist on change (for
@@ -996,13 +898,7 @@ function updateRevealPanel() {
   elements.revealContent.replaceChildren();
 
   const truth = scenario.groundTruth;
-  const tips =
-    resolveInvestigationTip(scenario) || {
-      lookFor:
-        "No specific pattern is described for this template.",
-      verify:
-        "Explore the data using the ward filter, aggregation and measure controls."
-    };
+  const tips = resolveInvestigationTip(scenario);
 
   const heading = document.createElement("h3");
   heading.textContent = truth.templateName;
@@ -1017,15 +913,32 @@ function updateRevealPanel() {
     buildGroundTruthList(truth, scenario)
   );
 
-  appendRevealSection(
-    "What the intended pattern should look like",
-    createParagraph(tips.lookFor)
-  );
+  if (tips) {
+    appendRevealSection(
+      "Pattern to look for",
+      createParagraph(tips.pattern)
+    );
 
-  appendRevealSection(
-    "How to check it with the tools available",
-    createParagraph(tips.verify)
-  );
+    appendRevealSection(
+      "How to verify",
+      createParagraph(tips.verify)
+    );
+
+    appendRevealSection(
+      "What could look similar",
+      createParagraph(tips.differential)
+    );
+
+    appendRevealSection(
+      "Appropriate action",
+      createParagraph(tips.action)
+    );
+
+    appendRevealSection(
+      "Common false-alarm cause",
+      createParagraph(tips.falseAlarm)
+    );
+  }
 
   const limitations = collectLimitations();
 
@@ -1043,20 +956,6 @@ function updateRevealPanel() {
       list
     );
   }
-
-  const learning = document.createElement("p");
-
-  const label = document.createElement("strong");
-  label.textContent = "Learning point: ";
-
-  learning.append(
-    label,
-    document.createTextNode(
-      "A control-chart signal supports investigation; it does not by itself prove an outbreak. Equally, the absence of a signal does not prove that nothing has happened \u2014 particularly when counts are small."
-    )
-  );
-
-  elements.revealContent.append(learning);
 }
 
 function appendRevealSection(title, contentElement) {
@@ -1122,13 +1021,23 @@ function collectLimitations() {
     0
   );
 
+  const rareOrganismCodes = ["MRSA", "PSAER"];
+  const isRareOrganism =
+    rareOrganismCodes.includes(surveillance.code);
+
   if (surveillance.code === "MRSA") {
     notes.push(
       "MRSA bacteraemia is a rare event in UK hospitals \u2014 even a large trust typically reports only a handful of cases per year. Weekly SPC charts have very limited statistical power for organisms this rare; in practice, monthly per-trust reporting and case-level review are usually more informative than trend charts."
     );
   }
 
-  if (surveillance.code !== "MRSA" && totalEvents < 20) {
+  if (surveillance.code === "PSAER") {
+    notes.push(
+      "Pseudomonas aeruginosa bacteraemia is a rare event at trust level (typically a handful of cases per month, not per week). Weekly SPC charts have limited statistical power at this baseline; monthly aggregation and case-level review are usually more informative than weekly trend charts."
+    );
+  }
+
+  if (!isRareOrganism && totalEvents < 20) {
     notes.push(
       `The visible window contains only ${totalEvents} events. At counts this low, Poisson variability dominates and \u00b13\u03c3 limits behave more loosely than the nominal 0.27 % false-alarm rate would suggest. Treat any single signal with corresponding caution.`
     );
@@ -1157,7 +1066,8 @@ function truthHasIntendedSignal(templateId) {
     "gradual-trend",
     "local-outbreak",
     "targeted-screening",
-    "reporting-artefact"
+    "reporting-artefact",
+    "diagnostic-method-change"
   ].includes(templateId);
 }
 

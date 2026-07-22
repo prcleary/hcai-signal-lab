@@ -1,75 +1,16 @@
 // js/generator.js
 
-export const SCENARIO_TEMPLATES = [
-  {
-    id: "common-cause",
-    name: "Stable common-cause variation",
-    difficulty: 1,
-    appliesTo: ["CDI", "MRSA", "CPE", "ECOLI"]
-  },
-  {
-    id: "single-extreme",
-    name: "Isolated extreme observation",
-    difficulty: 1,
-    // MRSA excluded: baseline is so low that a x5 spike still resolves to
-    // zero cases in most weeks and would leave no visible signal.
-    appliesTo: ["CDI", "CPE", "ECOLI"]
-  },
-  {
-    id: "step-increase",
-    name: "Sustained step increase",
-    difficulty: 1,
-    // MRSA excluded: a x2 step on ~0.05 cases/week is not detectable.
-    appliesTo: ["CDI", "CPE", "ECOLI"]
-  },
-  {
-    id: "gradual-trend",
-    name: "Gradual underlying increase",
-    difficulty: 2,
-    appliesTo: ["CDI", "CPE", "ECOLI"]
-  },
-  {
-    id: "local-outbreak",
-    name: "Localised ward outbreak",
-    difficulty: 2,
-    // MRSA kept: even a handful of cases in one ward is significant for a
-    // rare organism. The outbreak multiplier is boosted for rare topics
-    // (see getScenarioMultiplier) so the affected ward reliably shows cases.
-    appliesTo: ["CDI", "MRSA", "CPE", "ECOLI"]
-  },
-  {
-    id: "seasonality",
-    name: "Seasonal variation",
-    difficulty: 2,
-    appliesTo: ["CDI", "ECOLI"]
-  },
-  {
-    id: "screening-expansion",
-    name: "Expansion of screening",
-    difficulty: 2,
-    appliesTo: ["CPE"]
-  },
-  {
-    id: "targeted-screening",
-    name: "Change to targeted screening",
-    difficulty: 3,
-    appliesTo: ["CPE"]
-  },
-  {
-    id: "denominator-change",
-    name: "Changing denominator",
-    difficulty: 3,
-    appliesTo: ["CDI", "CPE", "ECOLI"]
-  },
-  {
-    id: "reporting-artefact",
-    name: "Reporting delay or batch reporting",
-    difficulty: 3,
-    // MRSA excluded: a tail dip from ~0 to 0 is invisible, so the reveal
-    // would be unverifiable in the chart.
-    appliesTo: ["CDI", "CPE", "ECOLI"]
-  }
-];
+import {
+  SCENARIO_TEMPLATES,
+  CHANGE_POINT_POSITIONS,
+  createExplanation
+} from "./templates.js";
+
+import { SURVEILLANCE_TOPICS } from "./topics.js";
+
+// Re-export so existing consumers of ./generator.js keep working. New
+// code should import these from the underlying modules directly.
+export { SCENARIO_TEMPLATES, SURVEILLANCE_TOPICS };
 
 const HOSPITAL_PREFIXES = [
   "North Wessex",
@@ -116,60 +57,6 @@ const WARDS = [
   { name: "Renal Unit", site: "Memorial Hospital", risk: 1.6 },
   { name: "Haematology", site: "Memorial Hospital", risk: 1.7 }
 ];
-
-export const SURVEILLANCE_TOPICS = {
-  CDI: {
-    code: "CDI",
-    organism: "Clostridioides difficile infection",
-    shortName: "C. difficile",
-    availableMeasures: ["count", "rate"],
-    defaultMeasure: "rate",
-    numeratorLabel: "Cases",
-    denominatorLabel: "Bed-days",
-    rateMultiplier: 10000,
-    recommendedChart: "u",
-    baselineRate: 0.0007
-  },
-
-  MRSA: {
-    code: "MRSA",
-    organism: "MRSA bacteraemia",
-    shortName: "MRSA",
-    availableMeasures: ["count"],
-    defaultMeasure: "count",
-    numeratorLabel: "Cases",
-    denominatorLabel: "Bed-days",
-    rateMultiplier: 10000,
-    recommendedChart: "c",
-    baselineRate: 0.00005
-  },
-
-  CPE: {
-    code: "CPE",
-    organism: "Carbapenemase-producing Enterobacterales",
-    shortName: "CPE",
-    availableMeasures: ["count", "proportion"],
-    defaultMeasure: "proportion",
-    numeratorLabel: "Screen-positive patients",
-    denominatorLabel: "Patients screened",
-    rateMultiplier: 100,
-    recommendedChart: "p",
-    baselineRate: 0.025
-  },
-
-  ECOLI: {
-    code: "ECOLI",
-    organism: "Escherichia coli bacteraemia",
-    shortName: "E. coli",
-    availableMeasures: ["count", "rate"],
-    defaultMeasure: "rate",
-    numeratorLabel: "Cases",
-    denominatorLabel: "Bed-days",
-    rateMultiplier: 10000,
-    recommendedChart: "u",
-    baselineRate: 0.0003
-  }
-};
 
 /**
  * Seeded random number generator.
@@ -291,19 +178,34 @@ function chooseTopicAndTemplate(random, difficulty) {
  * Change points are chosen so the shift sits comfortably inside the
  * default 52-week visible window (weeks 104..155 for a 156-week series).
  * Templates without a discrete change point return null.
+ *
+ * The positions used here take precedence over CHANGE_POINT_POSITIONS
+ * exported from templates.js: the templates module knows only "roughly
+ * where in the series"; this table knows the visible-window pedagogy
+ * (must fall in the last third so post-change weeks are visible without
+ * scrolling). New template ids not listed here fall through to the
+ * imported table, so surveillance-behaviour templates land at ~0.55.
  */
 function getChangePoint(random, template, totalWeeks) {
-  const positions = {
+  const legacyPositions = {
     "step-increase": 0.80,
     "gradual-trend": 0.72,
     "local-outbreak": 0.85,
     "single-extreme": 0.80,
     "screening-expansion": 0.80,
     "targeted-screening": 0.80,
-    "denominator-change": 0.80
+    "denominator-change": 0.80,
+    "reporting-artefact": 0.80,
+    "testing-reduction": 0.80,
+    "case-definition-change": 0.80,
+    "diagnostic-method-change": 0.80,
+    "ward-closure": 0.80
   };
 
-  const fraction = positions[template.id];
+  const fraction =
+    legacyPositions[template.id] ??
+    CHANGE_POINT_POSITIONS[template.id];
+
   if (fraction == null) return null;
 
   // +/- 6 weeks of jitter so identical templates do not land on the same week.
@@ -355,6 +257,39 @@ function applyReportingArtefact(
   if (fromEnd === 1) return Math.round(numerator * 0.40);
   if (fromEnd === 2) return Math.round(numerator * 0.75);
   if (fromEnd === 5) return Math.round(numerator * 2.4);
+
+  return numerator;
+}
+
+/**
+ * Case-definition and diagnostic-method changes are simulated by
+ * rescaling the numerator on and after the change point. The
+ * denominator (bed-days) is untouched because these represent changes
+ * in how cases are counted, not changes in patient activity.
+ *
+ *   case-definition-change    Tightened definition removes ~35 % of
+ *                             cases. Sustained step-down in count and
+ *                             rate.
+ *   diagnostic-method-change  New method has ~35 % higher sensitivity.
+ *                             Sustained step-up in count and rate.
+ */
+function applyGamingNumeratorArtefact(
+  numerator,
+  template,
+  weekIndex,
+  changePoint
+) {
+  if (changePoint == null || weekIndex < changePoint) {
+    return numerator;
+  }
+
+  if (template.id === "case-definition-change") {
+    return Math.round(numerator * 0.65);
+  }
+
+  if (template.id === "diagnostic-method-change") {
+    return Math.round(numerator * 1.35);
+  }
 
   return numerator;
 }
@@ -463,6 +398,13 @@ function generateWeeklyObservation({
       screened = Math.max(1, Math.round(screened * 0.55));
     }
 
+    if (template.id === "testing-reduction" && afterChange) {
+      // Ascertainment cut: fewer patients screened, true positivity
+      // unchanged. Count of positives falls in step; proportion is
+      // preserved (subject to small-numbers noise).
+      screened = Math.max(1, Math.round(screened * 0.40));
+    }
+
     positivity = Math.min(0.4, positivity);
 
     const rawNumerator = randomBinomial(
@@ -494,6 +436,17 @@ function generateWeeklyObservation({
     denominator = Math.max(1, Math.round(denominator * 0.55));
   }
 
+  if (
+    template.id === "ward-closure" &&
+    afterChange &&
+    ward.name === affectedWard
+  ) {
+    // Ward is closed / decanted: bed-days collapse to a token value.
+    // Cases fall in step because the Poisson intensity uses this
+    // denominator, so the rate is broadly preserved.
+    denominator = Math.max(1, Math.round(denominator * 0.05));
+  }
+
   const expectedCases =
     topic.baselineRate *
     denominator *
@@ -502,11 +455,18 @@ function generateWeeklyObservation({
 
   const rawNumerator = randomPoisson(random, expectedCases);
 
-  const numerator = applyReportingArtefact(
+  const afterReportingArtefact = applyReportingArtefact(
     rawNumerator,
     template,
     weekIndex,
     totalWeeks
+  );
+
+  const numerator = applyGamingNumeratorArtefact(
+    afterReportingArtefact,
+    template,
+    weekIndex,
+    changePoint
   );
 
   return {
@@ -517,42 +477,6 @@ function generateWeeklyObservation({
     denominator,
     bedDays: denominator
   };
-}
-
-function createExplanation(template, affectedWard) {
-  const explanations = {
-    "common-cause":
-      "The process was stable. The apparent fluctuations were generated by ordinary random variation.",
-
-    "single-extreme":
-      "There was one unusually high observation. It warrants checking, but a single signal does not by itself prove an outbreak.",
-
-    "step-increase":
-      "A sustained increase in the underlying incidence began during the later part of the series.",
-
-    "gradual-trend":
-      "The underlying incidence increased gradually. A conventional control chart may detect this later than a sustained-shift method.",
-
-    "local-outbreak":
-      `A short outbreak occurred in ${affectedWard}. Hospital-level aggregation diluted the signal.`,
-
-    "seasonality":
-      "The underlying process contained a recurring seasonal pattern. Fixed control limits may repeatedly label predictable seasonal peaks as special-cause variation.",
-
-    "screening-expansion":
-      "The number of CPE screen-positive patients increased because substantially more patients were screened. Positivity remained broadly stable.",
-
-    "targeted-screening":
-      "Screening became more targeted towards patients at greater risk. Positivity increased even though this did not represent a hospital-wide increase in prevalence.",
-
-    "denominator-change":
-      "The activity denominator fell. Counts and rates therefore gave different impressions of the process.",
-
-    "reporting-artefact":
-      "Recent observations were affected by delayed or batch reporting. The apparent change did not fully represent when cases occurred."
-  };
-
-  return explanations[template.id];
 }
 
 /**
@@ -637,13 +561,13 @@ export function generateScenario(seed = generateSeed(), options = {}) {
       changePoint,
       changePointDate,
       affectedWard:
-        template.id === "local-outbreak"
+        template.id === "local-outbreak" ||
+        template.id === "ward-closure"
           ? affectedWard
           : null,
-      explanation: createExplanation(
-        template,
+      explanation: createExplanation(template, {
         affectedWard
-      )
+      })
     },
 
     learnerState: {
