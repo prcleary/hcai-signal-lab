@@ -259,7 +259,8 @@ encodes:
 
 Useful for handing out a common scenario in a workshop, or for
 referring to "scenario `v01-x-3f9a7c8b`" in notes without needing
-screenshots. No data is transmitted — the code lets each learner's
+screenshots. Use the **Copy** button next to the code to place it on
+your clipboard. No data is transmitted — the code lets each learner's
 device regenerate the same synthetic series locally.
 
 ### 10. Analysis trail

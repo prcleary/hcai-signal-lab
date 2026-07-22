@@ -1381,7 +1381,6 @@ function readSelectedDifficulty() {
 let copyResetTimeout = null;
 
 async function copyScenarioCode() {
-  const button = elements.scenarioCodeCopyButton;
   const code = elements.scenarioCode.textContent;
   if (!code) return;
 

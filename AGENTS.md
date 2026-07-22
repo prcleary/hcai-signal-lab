@@ -78,6 +78,13 @@ Preserve these unless the user explicitly overrides them.
   `prepareAnalysis` computes centre and limits from the baseline
   slice regardless of the user's display window. Do not compute
   limits from the currently-visible window.
+- Preserve scenario-code stability. The `APP_VERSION_CODE` constant
+  in `js/generator.js` is embedded in every displayed scenario code
+  (`v01-<d>-<hex>`). Two learners on the same release must be able
+  to enter the same code and see an identical scenario. Bump
+  `APP_VERSION_CODE` **whenever a change to the generator, topics
+  or templates would cause the same seed to produce a different
+  scenario** — do not silently break shared codes.
 - Never send user text or scenario details off-device. No
   auto-updates, no error-reporting endpoints, no analytics.
 - Never commit real names, organisations, patient details, or
@@ -98,6 +105,8 @@ js/topics.js             Surveillance topics (organism, denominator, baseline ra
 js/templates.js          Scenario templates (id, name, difficulty, category, applies-to).
                          Data-only module.
 js/generator.js          Deterministic scenario generator. Uses mulberry32.
+                         Exports APP_VERSION_CODE, formatScenarioCode and
+                         parseScenarioCode for reproducible scenario codes.
 js/statistics.js         Aggregation, HAI-cutoff filter, onset-apportionment filter,
                          SPC (c/u/p chart), Nelson rules 1 & 4, signal detection.
 js/chart.js              Canvas renderer. Handles smoothing overlay, limits, signals,
@@ -182,6 +191,10 @@ The user is on **Windows PowerShell 5.1**.
   from the `main` branch of `https://github.com/prcleary/hcai-signal-lab`.
 - `.nojekyll` disables Jekyll processing so files are served as-is.
 - No CI/CD pipeline; deployment is a plain `git push origin main`.
+- Releases are tracked as annotated Git tags (`v0.1.0`, `v0.2.0`, …).
+  Bump the tag on any release that changes behaviour; a `v0.x.y` bump
+  does **not** require an `APP_VERSION_CODE` bump unless generator
+  output would differ (see §3).
 
 ## 8. Adding new content safely
 
