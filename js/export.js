@@ -297,6 +297,23 @@ function haiCutoffLabel(cutoff) {
 }
 
 /**
+ * Human-readable label for the CDI apportionment filter option
+ * embedded in the learning record. Kept in export.js (not imported
+ * from topics.js) so the export module has no runtime dependency on
+ * topics; the four values are stable and short.
+ */
+function cdiClassificationLabel(classification) {
+  const labels = {
+    "all":               "All CDI cases",
+    "trust-apportioned": "Trust-apportioned (HOHA + COHA)",
+    "hospital-onset":    "Hospital onset only (HOHA)",
+    "community-onset":   "Community onset (COIA + COCA)"
+  };
+
+  return labels[classification] || labels["trust-apportioned"];
+}
+
+/**
  * Human-readable subtype filter label for the learning record. Looks
  * up the label from the topic's subtypes list so any renamed subtypes
  * (e.g. new variant codes) render correctly.
@@ -465,6 +482,11 @@ function buildLearningRecordHtml({
     ${
       surveillance?.surveillanceKind === "respiratory-hai"
         ? `<dt>HAI onset cutoff</dt><dd>${escapeHtml(haiCutoffLabel(displayOptions?.haiCutoff))}</dd>`
+        : ""
+    }
+    ${
+      surveillance?.code === "CDI"
+        ? `<dt>CDI apportionment</dt><dd>${escapeHtml(cdiClassificationLabel(displayOptions?.cdiClassification))}</dd>`
         : ""
     }
     <dt>Y-axis</dt><dd>${escapeHtml(yAxisTitle || "")}</dd>

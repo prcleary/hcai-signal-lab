@@ -46,6 +46,7 @@ export function combineByDate(observations) {
         denominator: 0,
         bedDays: 0,
         onsetBins: null,
+        cdiBins: null,
         numeratorBySubtype: null
       });
     }
@@ -72,6 +73,16 @@ export function combineByDate(observations) {
         observation.onsetBins.probableHAI || 0;
       group.onsetBins.definiteHAI +=
         observation.onsetBins.definiteHAI || 0;
+    }
+
+    if (observation.cdiBins) {
+      if (!group.cdiBins) {
+        group.cdiBins = { HOHA: 0, COHA: 0, COIA: 0, COCA: 0 };
+      }
+      group.cdiBins.HOHA += observation.cdiBins.HOHA || 0;
+      group.cdiBins.COHA += observation.cdiBins.COHA || 0;
+      group.cdiBins.COIA += observation.cdiBins.COIA || 0;
+      group.cdiBins.COCA += observation.cdiBins.COCA || 0;
     }
 
     if (observation.numeratorBySubtype) {
@@ -115,6 +126,39 @@ export function applyHaiCutoff(points, cutoff) {
 
     const numerator = bins.reduce(
       (sum, key) => sum + (point.onsetBins[key] || 0),
+      0
+    );
+
+    return { ...point, numerator };
+  });
+}
+
+/**
+ * For CDI series, rewrite each combined point's numerator so it counts
+ * only the apportionment bins allowed by the chosen classification
+ * filter (see NHS mandatory-surveillance categorisation). Points
+ * without a `cdiBins` breakdown -- e.g. non-CDI series, or CDI
+ * scenarios generated before this feature -- are returned unchanged.
+ *
+ * Classification values match CDI_CLASSIFICATION_BINS in js/topics.js.
+ */
+export function applyCdiClassification(points, classification) {
+  const binsByClassification = {
+    "all":               ["HOHA", "COHA", "COIA", "COCA"],
+    "trust-apportioned": ["HOHA", "COHA"],
+    "hospital-onset":    ["HOHA"],
+    "community-onset":   ["COIA", "COCA"]
+  };
+
+  const bins =
+    binsByClassification[classification] ||
+    binsByClassification["trust-apportioned"];
+
+  return points.map(point => {
+    if (!point.cdiBins) return point;
+
+    const numerator = bins.reduce(
+      (sum, key) => sum + (point.cdiBins[key] || 0),
       0
     );
 
@@ -500,12 +544,20 @@ export function prepareAnalysis(
         )
       : withSubtype;
 
+  const withClassification =
+    scenario.surveillance.code === "CDI"
+      ? applyCdiClassification(
+          withCutoff,
+          displayOptions.cdiClassification || "trust-apportioned"
+        )
+      : withCutoff;
+
   const aggregation = Math.max(
     1,
     Number(displayOptions.aggregation) || 1
   );
 
-  const aggregated = aggregatePoints(withCutoff, aggregation);
+  const aggregated = aggregatePoints(withClassification, aggregation);
 
   const chartType = selectControlChart(
     displayOptions.spcType,

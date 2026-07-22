@@ -113,6 +113,17 @@
             </select>
             <p class="information-box">Restricts the plotted numerator to detections in the selected onset-day bins. Applies only to nosocomial respiratory topics.</p>
           </div>
+
+          <div id="cdiClassificationField" class="cdi-classification-field" hidden>
+            <label for="cdiClassificationSelect">CDI apportionment</label>
+            <select id="cdiClassificationSelect">
+              <option value="all">All CDI cases</option>
+              <option value="trust-apportioned" selected>Trust-apportioned (HOHA + COHA)</option>
+              <option value="hospital-onset">Hospital onset only (HOHA)</option>
+              <option value="community-onset">Community onset (COIA + COCA)</option>
+            </select>
+            <p class="information-box">Filters the plotted numerator by the NHS mandatory C. difficile apportionment categories (hospital / community onset, healthcare / community associated). Applies only to the CDI topic.</p>
+          </div>
         </section>
 
         <section class="control-group">

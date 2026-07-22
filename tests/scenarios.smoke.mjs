@@ -28,7 +28,7 @@ import {
   INVESTIGATION_TIPS,
   resolveInvestigationTip
 } from "../js/tips.js";
-import { applyHaiCutoff, applySubtypeFilter } from "../js/statistics.js";
+import { applyHaiCutoff, applySubtypeFilter, applyCdiClassification } from "../js/statistics.js";
 
 const TIP_FIELDS = [
   "pattern",
@@ -508,6 +508,90 @@ for (const templateId of ["care-bundle-intervention", "procedure-mix-shift"]) {
   assert(
     seen,
     `no ${templateId} scenario produced in 8000 seeds`
+  );
+}
+
+// --- 15. CDI observations carry consistent apportionment bins ---------
+//
+// Every CDI observation must expose a `cdiBins` object with the four
+// NHS categories (HOHA, COHA, COIA, COCA) summing to the observation
+// numerator, so downstream filters attribute the exact same total.
+
+let sawCdi = false;
+for (let seed = 1; seed <= 4000 && !sawCdi; seed += 1) {
+  const scenario = generateScenario(seed);
+
+  if (scenario.surveillance.code !== "CDI") continue;
+
+  sawCdi = true;
+
+  for (const obs of scenario.observations) {
+    assert(
+      obs.cdiBins &&
+        typeof obs.cdiBins.HOHA === "number" &&
+        typeof obs.cdiBins.COHA === "number" &&
+        typeof obs.cdiBins.COIA === "number" &&
+        typeof obs.cdiBins.COCA === "number",
+      "CDI observation should have cdiBins with the four NHS categories"
+    );
+
+    const sum =
+      obs.cdiBins.HOHA +
+      obs.cdiBins.COHA +
+      obs.cdiBins.COIA +
+      obs.cdiBins.COCA;
+
+    assert(
+      sum === obs.numerator,
+      `CDI observation: numerator (${obs.numerator}) should equal sum of cdiBins (${sum})`
+    );
+  }
+
+  assert(
+    scenario.learnerState.display.cdiClassification === "trust-apportioned",
+    "CDI scenarios must default cdiClassification to trust-apportioned"
+  );
+}
+assert(
+  sawCdi,
+  "no CDI scenario was produced in 4000 seeds \u2014 topics.js may not export CDI"
+);
+
+// --- 16. applyCdiClassification sums the correct bins -----------------
+
+const syntheticCdiPoints = [
+  {
+    date: "2024-01-01",
+    numerator: 999,
+    denominator: 1000,
+    cdiBins: { HOHA: 4, COHA: 3, COIA: 2, COCA: 5 }
+  },
+  {
+    date: "2024-01-08",
+    numerator: 999,
+    denominator: 1000,
+    cdiBins: null
+  }
+];
+
+const expectedByClassification = {
+  "all":               14,
+  "trust-apportioned":  7,
+  "hospital-onset":     4,
+  "community-onset":    7
+};
+
+for (const [classification, expected] of Object.entries(expectedByClassification)) {
+  const result = applyCdiClassification(syntheticCdiPoints, classification);
+
+  assert(
+    result[0].numerator === expected,
+    `applyCdiClassification("${classification}") should set numerator to ${expected}, got ${result[0].numerator}`
+  );
+
+  assert(
+    result[1].numerator === 999,
+    `applyCdiClassification must leave points without cdiBins unchanged (got ${result[1].numerator})`
   );
 }
 

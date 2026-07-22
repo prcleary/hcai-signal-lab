@@ -107,6 +107,8 @@ function collectElements() {
     "showSignals",
     "haiCutoffSelect",
     "haiCutoffField",
+    "cdiClassificationSelect",
+    "cdiClassificationField",
     "subtypeSelect",
     "subtypeField",
     "mainChart",
@@ -149,6 +151,7 @@ function addEventListeners() {
     "showThreeSd",
     "showSignals",
     "haiCutoffSelect",
+    "cdiClassificationSelect",
     "subtypeSelect"
   ];
 
@@ -406,6 +409,7 @@ function applyScenarioStateToControls() {
     display.showSignals;
 
   updateHaiCutoffControl(display.haiCutoff);
+  updateCdiClassificationControl(display.cdiClassification);
 
   elements.investigateSelect.value =
     scenario.learnerState.investigate || "";
@@ -525,6 +529,10 @@ function updateStateFromControls() {
     haiCutoff:
       scenario.surveillance.surveillanceKind === "respiratory-hai"
         ? elements.haiCutoffSelect.value
+        : null,
+    cdiClassification:
+      scenario.surveillance.code === "CDI"
+        ? elements.cdiClassificationSelect.value
         : null
   };
 
@@ -548,6 +556,29 @@ function updateHaiCutoffControl(storedCutoff) {
   if (isRespiratory) {
     elements.haiCutoffSelect.value =
       storedCutoff || "probable-and-definite";
+  }
+}
+
+/**
+ * The CDI apportionment selector applies only to the CDI topic.
+ * Hide the containing field entirely for other topics; when shown,
+ * seed it from the stored display state (falling back to the
+ * trust-apportioned default when the stored scenario predates this
+ * feature).
+ */
+function updateCdiClassificationControl(storedClassification) {
+  if (
+    !elements.cdiClassificationField ||
+    !elements.cdiClassificationSelect
+  ) return;
+
+  const isCdi = scenario.surveillance.code === "CDI";
+
+  elements.cdiClassificationField.hidden = !isCdi;
+
+  if (isCdi) {
+    elements.cdiClassificationSelect.value =
+      storedClassification || "trust-apportioned";
   }
 }
 
@@ -666,7 +697,10 @@ function updateSpcCaveat(chartType) {
 function getSpcLabel(chartType, surveillance) {
   if (chartType === "none") {
     return withSubtypeSuffix(
-      withHaiCutoffSuffix("No control limits", surveillance),
+      withCdiClassificationSuffix(
+        withHaiCutoffSuffix("No control limits", surveillance),
+        surveillance
+      ),
       surveillance
     );
   }
@@ -679,7 +713,10 @@ function getSpcLabel(chartType, surveillance) {
       : base;
 
   return withSubtypeSuffix(
-    withHaiCutoffSuffix(label, surveillance),
+    withCdiClassificationSuffix(
+      withHaiCutoffSuffix(label, surveillance),
+      surveillance
+    ),
     surveillance
   );
 }
@@ -709,6 +746,32 @@ function withHaiCutoffSuffix(label, surveillance) {
   };
 
   const suffix = cutoffLabels[cutoff] || cutoff;
+
+  return `${label} \u00b7 ${suffix}`;
+}
+
+/**
+ * For the CDI topic, append the currently selected apportionment
+ * filter to the SPC label so the learner sees which cohort of cases
+ * (HOHA / COHA / COIA / COCA) the chart is plotting.
+ */
+function withCdiClassificationSuffix(label, surveillance) {
+  if (!surveillance || surveillance.code !== "CDI") return label;
+
+  const classification =
+    scenario?.learnerState?.display?.cdiClassification ||
+    "trust-apportioned";
+
+  const suffixByClassification = {
+    "all": "all cases",
+    "trust-apportioned": "HOHA + COHA",
+    "hospital-onset": "HOHA only",
+    "community-onset": "COIA + COCA"
+  };
+
+  const suffix = suffixByClassification[classification];
+
+  if (!suffix) return label;
 
   return `${label} \u00b7 ${suffix}`;
 }

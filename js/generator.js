@@ -1044,14 +1044,112 @@ function generateWeeklyObservation({
     random
   );
 
+  const cdiBins = partitionCdiBins({
+    random,
+    total: numerator,
+    topic,
+    template,
+    afterChange,
+    isAffectedWard: ward.name === affectedWard
+  });
+
   return {
     date: formatDate(date),
     site: ward.site,
     ward: ward.name,
     numerator,
     denominator,
-    bedDays: denominator
+    bedDays: denominator,
+    cdiBins
   };
+}
+
+/**
+ * Partition a CDI weekly numerator into the four NHS apportionment
+ * bins (HOHA, COHA, COIA, COCA) using a multinomial draw with weights
+ * from `topic.cdiClassificationWeights`.
+ *
+ * Templates whose mechanism concentrates in specific bins tilt the
+ * weights before the draw:
+ *
+ *   local-outbreak (on the affected ward, after change)
+ *       Ward-based transmission produces predominantly hospital-onset
+ *       cases; tilt weights heavily toward HOHA.
+ *
+ *   care-bundle-intervention (after change)
+ *       Interventions that reduce hospital transmission act on the
+ *       trust-attributable cohort. The template already reduces the
+ *       total numerator; tilting weights toward COIA/COCA localises
+ *       the drop in the HOHA + COHA cohort, so a learner filtering
+ *       to "Trust-apportioned" sees a sharper reduction.
+ *
+ * All other CDI templates use the topic's baseline weights unchanged.
+ * Returns null for non-CDI topics so downstream code can treat the
+ * field as optional.
+ */
+function partitionCdiBins({
+  random,
+  total,
+  topic,
+  template,
+  afterChange,
+  isAffectedWard
+}) {
+  if (!topic.cdiClassifications || !topic.cdiClassificationWeights) {
+    return null;
+  }
+
+  const codes = topic.cdiClassifications.map(entry => entry.code);
+  const weights = { ...topic.cdiClassificationWeights };
+
+  if (
+    template.id === "local-outbreak" &&
+    afterChange &&
+    isAffectedWard
+  ) {
+    weights.HOHA = 0.75;
+    weights.COHA = 0.15;
+    weights.COIA = 0.04;
+    weights.COCA = 0.06;
+  } else if (template.id === "care-bundle-intervention" && afterChange) {
+    weights.HOHA = 0.20;
+    weights.COHA = 0.15;
+    weights.COIA = 0.20;
+    weights.COCA = 0.45;
+  }
+
+  const bins = {};
+  for (const code of codes) bins[code] = 0;
+
+  if (total <= 0) return bins;
+
+  // Multinomial draw via successive binomials conditioned on the
+  // remaining count and remaining weight mass.
+  let remaining = total;
+  let remainingWeight = codes.reduce(
+    (sum, code) => sum + (weights[code] || 0),
+    0
+  ) || 1;
+
+  for (let index = 0; index < codes.length - 1; index += 1) {
+    if (remaining <= 0) break;
+
+    const code = codes[index];
+    const probability = Math.min(
+      1,
+      Math.max(0, (weights[code] || 0) / remainingWeight)
+    );
+
+    const draw = randomBinomial(random, remaining, probability);
+
+    bins[code] = draw;
+    remaining -= draw;
+    remainingWeight -= (weights[code] || 0);
+  }
+
+  bins[codes[codes.length - 1]] = remaining;
+
+  return bins;
 }
 
 /**
@@ -1165,7 +1263,9 @@ export function generateScenario(seed = generateSeed(), options = {}) {
         haiCutoff:
           topic.surveillanceKind === "respiratory-hai"
             ? "probable-and-definite"
-            : null
+            : null,
+        cdiClassification:
+          topic.code === "CDI" ? "trust-apportioned" : null
       },
       investigate: "",
       notes: "",

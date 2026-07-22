@@ -52,7 +52,41 @@ export const SURVEILLANCE_TOPICS = {
     denominatorLabel: "Bed-days",
     rateMultiplier: 10000,
     recommendedChart: "u",
-    baselineRate: 0.0007
+    baselineRate: 0.0007,
+    // NHS / UKHSA CDI apportionment categories, per the mandatory
+    // surveillance framework in force since April 2019 (definitions
+    // reaffirmed in the April 2023 revision):
+    //
+    //   HOHA  Hospital Onset, Healthcare Associated
+    //         Specimen taken on day 3 or later of the current trust
+    //         admission (day of admission = day 1).
+    //   COHA  Community Onset, Healthcare Associated
+    //         Specimen taken on day 1 or 2 of the current admission,
+    //         with a discharge from the same trust in the previous
+    //         28 days.
+    //   COIA  Community Onset, Indeterminate Association
+    //         Specimen taken outside hospital or on day 1/2 with a
+    //         discharge from any trust 29-84 days prior.
+    //   COCA  Community Onset, Community Associated
+    //         No admission to any trust in the previous 12 weeks.
+    //
+    // Trust-apportioned cases (used for the mandatory objective) are
+    // HOHA + COHA. Weights reflect broadly typical UK acute-trust
+    // distributions; scenario templates may tilt them (e.g. an
+    // outbreak amplifies HOHA, a care-bundle intervention reduces
+    // HOHA + COHA).
+    cdiClassifications: [
+      { code: "HOHA", label: "Hospital onset, healthcare associated" },
+      { code: "COHA", label: "Community onset, healthcare associated" },
+      { code: "COIA", label: "Community onset, indeterminate association" },
+      { code: "COCA", label: "Community onset, community associated" }
+    ],
+    cdiClassificationWeights: {
+      HOHA: 0.35,
+      COHA: 0.20,
+      COIA: 0.15,
+      COCA: 0.30
+    }
   },
 
   MRSA: {
@@ -394,6 +428,33 @@ export const HAI_CUTOFF_BINS = {
 };
 
 export const HAI_DEFAULT_CUTOFF = "probable-and-definite";
+
+/**
+ * Display-time filter options for the CDI apportionment selector.
+ * Mirrors the NHS mandatory-surveillance categorisation:
+ *
+ *   all                  Every CDI case regardless of onset / origin.
+ *   trust-apportioned    HOHA + COHA -- the cohort attributed to the
+ *                        acute trust in the mandatory objective.
+ *   hospital-onset       HOHA only -- specimen taken on day 3 or later.
+ *   community-onset      COIA + COCA -- cases not attributed to the
+ *                        trust's current admission or recent discharge.
+ */
+export const CDI_CLASSIFICATION_OPTIONS = [
+  { value: "all",               label: "All CDI cases" },
+  { value: "trust-apportioned", label: "Trust-apportioned (HOHA + COHA)" },
+  { value: "hospital-onset",    label: "Hospital onset only (HOHA)" },
+  { value: "community-onset",   label: "Community onset (COIA + COCA)" }
+];
+
+export const CDI_CLASSIFICATION_BINS = {
+  "all":               ["HOHA", "COHA", "COIA", "COCA"],
+  "trust-apportioned": ["HOHA", "COHA"],
+  "hospital-onset":    ["HOHA"],
+  "community-onset":   ["COIA", "COCA"]
+};
+
+export const CDI_DEFAULT_CLASSIFICATION = "trust-apportioned";
 
 /**
  * Convenience groupings for use by scenario templates when declaring the
