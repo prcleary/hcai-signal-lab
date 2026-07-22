@@ -28,7 +28,7 @@ import {
   INVESTIGATION_TIPS,
   resolveInvestigationTip
 } from "../js/tips.js";
-import { applyHaiCutoff } from "../js/statistics.js";
+import { applyHaiCutoff, applySubtypeFilter } from "../js/statistics.js";
 
 const TIP_FIELDS = [
   "pattern",
@@ -316,6 +316,135 @@ for (const [cutoff, expected] of Object.entries(expectedByCutoff)) {
     `applyHaiCutoff must leave points without onsetBins unchanged (got ${result[1].numerator})`
   );
 }
+
+// --- 10. Subtype-carrying topics: numeratorBySubtype sums to numerator -
+
+const subtypeCodes = ["CPE", "COVID", "INFA"];
+const seenSubtypeTopics = new Set();
+
+for (let seed = 1; seed <= 6000 && seenSubtypeTopics.size < subtypeCodes.length; seed += 1) {
+  const scenario = generateScenario(seed);
+
+  if (!subtypeCodes.includes(scenario.surveillance.code)) continue;
+  if (seenSubtypeTopics.has(scenario.surveillance.code)) continue;
+
+  seenSubtypeTopics.add(scenario.surveillance.code);
+
+  for (const obs of scenario.observations) {
+    assert(
+      obs.numeratorBySubtype && typeof obs.numeratorBySubtype === "object",
+      `${scenario.surveillance.code}: observation missing numeratorBySubtype`
+    );
+
+    const sum = Object.values(obs.numeratorBySubtype).reduce(
+      (acc, count) => acc + count,
+      0
+    );
+
+    assert(
+      sum === obs.numerator,
+      `${scenario.surveillance.code}: numeratorBySubtype sums (${sum}) should equal numerator (${obs.numerator})`
+    );
+  }
+
+  assert(
+    scenario.learnerState.filters.subtype === "all",
+    `${scenario.surveillance.code}: default subtype filter should be "all"`
+  );
+}
+
+for (const code of subtypeCodes) {
+  assert(
+    seenSubtypeTopics.has(code),
+    `no ${code} scenario produced in 6000 seeds`
+  );
+}
+
+// --- 11. Subtype templates are produced -------------------------------
+
+for (const templateId of ["subtype-emergence", "subtype-displacement"]) {
+  let seen = false;
+  for (let seed = 1; seed <= 6000 && !seen; seed += 1) {
+    const scenario = generateScenario(seed, { difficulty: 3 });
+    if (scenario.groundTruth.templateId === templateId) seen = true;
+  }
+  assert(
+    seen,
+    `no ${templateId} scenario produced in 6000 seeds at difficulty 3`
+  );
+}
+
+// --- 12. applySubtypeFilter arithmetic --------------------------------
+
+const subPoints = [
+  {
+    date: "2024-01-01",
+    numerator: 100,
+    denominator: 4000,
+    numeratorBySubtype: { KPC: 30, OXA48: 40, NDM: 20, VIM: 7, IMP: 3 },
+    onsetBins: null
+  },
+  {
+    date: "2024-01-08",
+    numerator: 100,
+    denominator: 4000,
+    numeratorBySubtype: null,
+    onsetBins: null
+  }
+];
+
+const kpcFiltered = applySubtypeFilter(subPoints, "KPC");
+assert(
+  kpcFiltered[0].numerator === 30,
+  `applySubtypeFilter("KPC") should set numerator to 30, got ${kpcFiltered[0].numerator}`
+);
+assert(
+  kpcFiltered[1].numerator === 100,
+  `applySubtypeFilter must leave points without numeratorBySubtype unchanged (got ${kpcFiltered[1].numerator})`
+);
+
+const allFiltered = applySubtypeFilter(subPoints, "all");
+assert(
+  allFiltered[0].numerator === 100,
+  `applySubtypeFilter("all") must be a no-op (got ${allFiltered[0].numerator})`
+);
+
+const nullFiltered = applySubtypeFilter(subPoints, null);
+assert(
+  nullFiltered[0].numerator === 100,
+  `applySubtypeFilter(null) must be a no-op (got ${nullFiltered[0].numerator})`
+);
+
+// Subtype filter + onsetBins together (respiratory scenario shape).
+const respPoint = [
+  {
+    date: "2024-01-01",
+    numerator: 100,
+    denominator: 4000,
+    numeratorBySubtype: { JN1: 60, XBB: 30, BA5: 10 },
+    onsetBins: {
+      community: 50,
+      indeterminate: 20,
+      probableHAI: 20,
+      definiteHAI: 10
+    }
+  }
+];
+
+const respFiltered = applySubtypeFilter(respPoint, "BA5");
+assert(
+  respFiltered[0].numerator === 10,
+  `respiratory subtype filter should set numerator to 10, got ${respFiltered[0].numerator}`
+);
+// onsetBins should be scaled by 10/100 = 0.1
+assert(
+  respFiltered[0].onsetBins.community === 5,
+  `respiratory subtype filter should scale community bin to 5, got ${respFiltered[0].onsetBins.community}`
+);
+assert(
+  respFiltered[0].onsetBins.definiteHAI === 1,
+  `respiratory subtype filter should scale definiteHAI bin to 1, got ${respFiltered[0].onsetBins.definiteHAI}`
+);
 
 // --- Report ------------------------------------------------------------
 

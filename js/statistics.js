@@ -45,7 +45,8 @@ export function combineByDate(observations) {
         numerator: 0,
         denominator: 0,
         bedDays: 0,
-        onsetBins: null
+        onsetBins: null,
+        numeratorBySubtype: null
       });
     }
 
@@ -71,6 +72,18 @@ export function combineByDate(observations) {
         observation.onsetBins.probableHAI || 0;
       group.onsetBins.definiteHAI +=
         observation.onsetBins.definiteHAI || 0;
+    }
+
+    if (observation.numeratorBySubtype) {
+      if (!group.numeratorBySubtype) {
+        group.numeratorBySubtype = {};
+      }
+      for (const [code, count] of Object.entries(
+        observation.numeratorBySubtype
+      )) {
+        group.numeratorBySubtype[code] =
+          (group.numeratorBySubtype[code] || 0) + (count || 0);
+      }
     }
   }
 
@@ -106,6 +119,48 @@ export function applyHaiCutoff(points, cutoff) {
     );
 
     return { ...point, numerator };
+  });
+}
+
+/**
+ * Filter each combined point down to a single subtype. When `subtype`
+ * is null / "all" / missing, points pass through unchanged. When a
+ * specific subtype is chosen, the point's numerator is replaced by the
+ * count for that subtype; onsetBins are scaled proportionally so a
+ * downstream HAI cutoff continues to make sense.
+ *
+ * This runs BEFORE applyHaiCutoff so the cutoff step operates on the
+ * already-subtype-filtered onsetBins.
+ */
+export function applySubtypeFilter(points, subtype) {
+  if (!subtype || subtype === "all") return points;
+
+  return points.map(point => {
+    if (!point.numeratorBySubtype) return point;
+
+    const subtypeCount = point.numeratorBySubtype[subtype] || 0;
+    const originalTotal = point.numerator || 0;
+
+    const next = { ...point, numerator: subtypeCount };
+
+    if (point.onsetBins && originalTotal > 0) {
+      const ratio = subtypeCount / originalTotal;
+      next.onsetBins = {
+        community: Math.round(point.onsetBins.community * ratio),
+        indeterminate: Math.round(point.onsetBins.indeterminate * ratio),
+        probableHAI: Math.round(point.onsetBins.probableHAI * ratio),
+        definiteHAI: Math.round(point.onsetBins.definiteHAI * ratio)
+      };
+    } else if (point.onsetBins) {
+      next.onsetBins = {
+        community: 0,
+        indeterminate: 0,
+        probableHAI: 0,
+        definiteHAI: 0
+      };
+    }
+
+    return next;
   });
 }
 
@@ -432,13 +487,18 @@ export function prepareAnalysis(
 
   const combined = combineByDate(filtered);
 
+  const withSubtype = applySubtypeFilter(
+    combined,
+    displayOptions.subtype
+  );
+
   const withCutoff =
     scenario.surveillance.surveillanceKind === "respiratory-hai"
       ? applyHaiCutoff(
-          combined,
+          withSubtype,
           displayOptions.haiCutoff || "probable-and-definite"
         )
-      : combined;
+      : withSubtype;
 
   const aggregation = Math.max(
     1,

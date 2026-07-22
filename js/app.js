@@ -108,7 +108,8 @@ function collectElements() {
     "showSignals",
     "haiCutoffSelect",
     "haiCutoffField",
-
+    "subtypeSelect",
+    "subtypeField",
     "mainChart",
     "chartSubtitle",
     "chartSummary",
@@ -149,7 +150,8 @@ function addEventListeners() {
     "showTwoSd",
     "showThreeSd",
     "showSignals",
-    "haiCutoffSelect"
+    "haiCutoffSelect",
+    "subtypeSelect"
   ];
 
   for (const id of displayControls) {
@@ -290,6 +292,39 @@ function populateLocationControls() {
   );
 
   updateWardControl();
+  updateSubtypeControl();
+}
+
+function updateSubtypeControl() {
+  if (!elements.subtypeSelect || !elements.subtypeField) return;
+
+  const subtypes = scenario.surveillance.subtypes;
+
+  if (!subtypes || !subtypes.length) {
+    elements.subtypeField.hidden = true;
+    return;
+  }
+
+  elements.subtypeField.hidden = false;
+
+  elements.subtypeSelect.replaceChildren(
+    createOption("all", "All subtypes"),
+    ...subtypes.map(subtype =>
+      createOption(subtype.code, subtype.label)
+    )
+  );
+
+  const stored = scenario.learnerState.filters.subtype;
+
+  if (
+    stored &&
+    stored !== "all" &&
+    subtypes.some(subtype => subtype.code === stored)
+  ) {
+    elements.subtypeSelect.value = stored;
+  } else {
+    elements.subtypeSelect.value = "all";
+  }
 }
 
 function updateWardControl() {
@@ -458,9 +493,17 @@ function syncMeasureAndSpcControls(source) {
 }
 
 function updateStateFromControls() {
+  const hasSubtypes = Boolean(
+    scenario.surveillance.subtypes &&
+      scenario.surveillance.subtypes.length
+  );
+
   scenario.learnerState.filters = {
     site: elements.siteSelect.value,
-    ward: elements.wardSelect.value
+    ward: elements.wardSelect.value,
+    subtype: hasSubtypes
+      ? elements.subtypeSelect.value
+      : null
   };
 
   scenario.learnerState.display = {
@@ -613,7 +656,10 @@ function updateSpcCaveat(chartType) {
 
 function getSpcLabel(chartType, surveillance) {
   if (chartType === "none") {
-    return withHaiCutoffSuffix("No control limits", surveillance);
+    return withSubtypeSuffix(
+      withHaiCutoffSuffix("No control limits", surveillance),
+      surveillance
+    );
   }
 
   const base = `${chartType}-chart`;
@@ -623,7 +669,10 @@ function getSpcLabel(chartType, surveillance) {
       ? `${base} \u2014 recommended for this topic`
       : base;
 
-  return withHaiCutoffSuffix(label, surveillance);
+  return withSubtypeSuffix(
+    withHaiCutoffSuffix(label, surveillance),
+    surveillance
+  );
 }
 
 /**
@@ -653,6 +702,32 @@ function withHaiCutoffSuffix(label, surveillance) {
   const suffix = cutoffLabels[cutoff] || cutoff;
 
   return `${label} \u00b7 ${suffix}`;
+}
+
+/**
+ * For topics with subtypes, append the currently selected subtype
+ * label (or nothing if "all") to the SPC label.
+ */
+function withSubtypeSuffix(label, surveillance) {
+  if (
+    !surveillance ||
+    !surveillance.subtypes ||
+    !surveillance.subtypes.length
+  ) {
+    return label;
+  }
+
+  const filter = scenario?.learnerState?.filters?.subtype;
+
+  if (!filter || filter === "all") return label;
+
+  const match = surveillance.subtypes.find(
+    subtype => subtype.code === filter
+  );
+
+  const subtypeLabel = match ? match.label : filter;
+
+  return `${label} \u00b7 ${subtypeLabel}`;
 }
 
 function updateScenarioHeader() {

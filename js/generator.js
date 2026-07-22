@@ -545,6 +545,16 @@ function generateRespiratoryObservation({
     onsetBins.probableHAI +
     onsetBins.definiteHAI;
 
+  const numeratorBySubtype = partitionBySubtype({
+    random,
+    total: numerator,
+    topic,
+    template,
+    weekIndex,
+    changePoint,
+    afterChange
+  });
+
   return {
     date: formatDate(date),
     site: ward.site,
@@ -552,8 +562,128 @@ function generateRespiratoryObservation({
     numerator,
     denominator,
     bedDays: denominator,
-    onsetBins
+    onsetBins,
+    numeratorBySubtype
   };
+}
+
+/**
+ * For topics with a `subtypes` list, decide how the total weekly
+ * numerator splits across subtypes for a given (week, template)
+ * combination.
+ *
+ * Templates that manipulate subtype composition:
+ *   subtype-emergence     A previously-rare subtype (last entry in the
+ *                         topic's subtypes list) grows to ~40% share
+ *                         over ~12 weeks after the change point. Total
+ *                         numerator is unchanged.
+ *   subtype-displacement  The dominant subtype (first entry) is
+ *                         gradually displaced by the challenger (second
+ *                         entry). Total numerator is unchanged.
+ *
+ * Returns a normalised weights map { subtypeCode: fraction }.
+ */
+function computeSubtypeWeights(topic, template, weekIndex, changePoint, afterChange) {
+  const base = { ...topic.subtypeWeights };
+  const codes = topic.subtypes.map(subtype => subtype.code);
+
+  if (template.id === "subtype-emergence" && afterChange) {
+    const emerging = codes[codes.length - 1];
+    const weeksSince = weekIndex - changePoint;
+
+    // Emerging fraction climbs from baseline to ~40% over ~12 weeks.
+    const targetFraction = Math.min(
+      0.4,
+      (topic.subtypeWeights[emerging] || 0) + 0.035 * weeksSince
+    );
+
+    const others = codes.filter(code => code !== emerging);
+    const othersSum = others.reduce(
+      (sum, code) => sum + (topic.subtypeWeights[code] || 0),
+      0
+    ) || 1;
+
+    const remaining = 1 - targetFraction;
+
+    for (const code of others) {
+      base[code] =
+        ((topic.subtypeWeights[code] || 0) / othersSum) * remaining;
+    }
+    base[emerging] = targetFraction;
+  }
+
+  if (template.id === "subtype-displacement" && afterChange) {
+    const dominant = codes[0];
+    const challenger = codes[1];
+    const weeksSince = weekIndex - changePoint;
+
+    const initialDominant = topic.subtypeWeights[dominant] || 0;
+    const transfer = Math.min(initialDominant * 0.85, 0.03 * weeksSince);
+
+    base[dominant] = Math.max(0.02, initialDominant - transfer);
+    base[challenger] =
+      (topic.subtypeWeights[challenger] || 0) + transfer;
+
+    const total = codes.reduce(
+      (sum, code) => sum + (base[code] || 0),
+      0
+    ) || 1;
+
+    for (const code of codes) {
+      base[code] = base[code] / total;
+    }
+  }
+
+  return base;
+}
+
+/**
+ * Partition `total` weekly numerator into per-subtype counts by drawing
+ * independently from the (possibly template-warped) subtype
+ * distribution. Returns null for topics without subtype metadata.
+ */
+function partitionBySubtype({
+  random,
+  total,
+  topic,
+  template,
+  weekIndex,
+  changePoint,
+  afterChange
+}) {
+  if (!topic.subtypes || !topic.subtypes.length) return null;
+
+  const codes = topic.subtypes.map(subtype => subtype.code);
+  const weights = computeSubtypeWeights(
+    topic,
+    template,
+    weekIndex,
+    changePoint,
+    afterChange
+  );
+
+  const counts = {};
+  for (const code of codes) counts[code] = 0;
+
+  const cumulative = [];
+  let acc = 0;
+  for (const code of codes) {
+    acc += weights[code] || 0;
+    cumulative.push([code, acc]);
+  }
+  const totalWeight = acc || 1;
+
+  for (let index = 0; index < total; index += 1) {
+    const draw = random() * totalWeight;
+    for (const [code, cum] of cumulative) {
+      if (draw <= cum) {
+        counts[code] += 1;
+        break;
+      }
+    }
+  }
+
+  return counts;
 }
 
 function generateWeeklyObservation({
@@ -646,13 +776,24 @@ function generateWeeklyObservation({
       totalWeeks
     );
 
+    const numeratorBySubtype = partitionBySubtype({
+      random,
+      total: numerator,
+      topic,
+      template,
+      weekIndex,
+      changePoint,
+      afterChange
+    });
+
     return {
       date: formatDate(date),
       site: ward.site,
       ward: ward.name,
       numerator,
       denominator: screened,
-      bedDays: wardBedDays
+      bedDays: wardBedDays,
+      numeratorBySubtype
     };
   }
 
@@ -800,7 +941,9 @@ export function generateScenario(seed = generateSeed(), options = {}) {
     learnerState: {
       filters: {
         site: "all",
-        ward: "all"
+        ward: "all",
+        subtype:
+          topic.subtypes && topic.subtypes.length ? "all" : null
       },
       display: {
         measure: topic.defaultMeasure,

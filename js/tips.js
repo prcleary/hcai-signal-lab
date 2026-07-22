@@ -250,6 +250,32 @@ export const INVESTIGATION_TIPS = {
       "Annotate the chart at the definition-change point. Report both the pre- and post-change definitions and the trend under each. Do not claim an IPC improvement from a definition-driven step-down.",
     falseAlarm:
       "Reporting a definition-driven step-down as an intervention success \u2014 the classic surveillance-behaviour artefact when performance indicators change definition without a methodological footnote."
+  },
+
+  "subtype-emergence": {
+    pattern:
+      "Total numerator (\u201cAll subtypes\u201d) is flat with common-cause variation. Applying the subtype filter to a previously minor subtype reveals a sustained rise, growing to a substantial fraction of the total over several months.",
+    verify:
+      "Cycle the subtype filter through each option in turn. An emerging subtype produces a clean step-up or upward trend when isolated; the previously dominant subtype(s) show a matching gradual decline. Check the reveal only after you have identified which subtype is responsible.",
+    differential:
+      "A step change in typing method (e.g. moving from WGS to targeted PCR) can produce apparent subtype emergence \u2014 check with the microbiology lab whether the typing panel or reporting rules changed. Reference-lab backlogs can also concentrate a subtype into one reporting week; look for smooth growth vs a single spike.",
+    action:
+      "Notify the IPC team, microbiology, and (for CPE / novel variants) the regional UKHSA HCAI team. Consider enhanced screening, contact tracing, and a targeted look-back at the affected subtype's cases. Preserve isolates for reference-lab typing.",
+    falseAlarm:
+      "Reporting overall counts as \u201cno change\u201d and missing the compositional shift. Emerging carbapenemase genes, seasonal influenza subtypes and SARS-CoV-2 variants all warrant action even when the total is stable."
+  },
+
+  "subtype-displacement": {
+    pattern:
+      "Total numerator is flat. The historically dominant subtype declines steadily while a challenger subtype rises \u2014 the two lines cross over the observation window when plotted separately using the subtype filter.",
+    verify:
+      "Apply the subtype filter to the dominant subtype and confirm the decline; then apply it to the challenger and confirm the corresponding rise. If both moves are of similar magnitude and opposite direction, and the total is unchanged, the pattern is a displacement rather than an overall change in incidence.",
+    differential:
+      "A methodological change (typing panel, primer set, molecular assay) can preferentially detect the challenger. Reference-lab reporting delays can also concentrate challenger cases into recent weeks. Check with the lab whether the typing pipeline or reporting cadence changed.",
+    action:
+      "Report the crossover with both subtype series shown. Discuss the clinical and IPC implications with microbiology and IPC \u2014 for CPE this may prompt review of empirical antimicrobials; for respiratory viruses it may prompt updated vaccine or treatment guidance.",
+    falseAlarm:
+      "Concluding \u201cno signal\u201d from the aggregate view when a clinically important compositional shift is happening underneath. Also \u2014 attributing displacement to an intervention when it is actually a typing-method change."
   }
 };
 

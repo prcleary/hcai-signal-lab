@@ -113,7 +113,26 @@ export const SURVEILLANCE_TOPICS = {
     denominatorLabel: "Patients screened",
     rateMultiplier: 100,
     recommendedChart: "p",
-    baselineRate: 0.025
+    baselineRate: 0.025,
+    // Carbapenemase gene distribution amongst screen-positive isolates.
+    // Weights sum to 1; the generator draws each isolate's gene from
+    // this distribution unless a scenario template overrides it. UK
+    // distribution roughly follows OXA-48-like dominant, KPC and NDM
+    // substantial, VIM and IMP rare (see UKHSA CPE surveillance).
+    subtypes: [
+      { code: "KPC",   label: "KPC" },
+      { code: "OXA48", label: "OXA-48-like" },
+      { code: "NDM",   label: "NDM" },
+      { code: "VIM",   label: "VIM" },
+      { code: "IMP",   label: "IMP" }
+    ],
+    subtypeWeights: {
+      KPC:   0.30,
+      OXA48: 0.40,
+      NDM:   0.20,
+      VIM:   0.07,
+      IMP:   0.03
+    }
   },
 
   ECOLI: {
@@ -175,6 +194,18 @@ export const SURVEILLANCE_TOPICS = {
       indeterminate: 0.20,
       probableHAI: 0.15,
       definiteHAI: 0.10
+    },
+    // Dominant lineage first; last entry is treated as the "emerging"
+    // candidate for the emergence-of-new-subtype template.
+    subtypes: [
+      { code: "JN1", label: "JN.1" },
+      { code: "XBB", label: "XBB.1.5" },
+      { code: "BA5", label: "BA.5" }
+    ],
+    subtypeWeights: {
+      JN1: 0.75,
+      XBB: 0.20,
+      BA5: 0.05
     }
   },
 
@@ -200,6 +231,16 @@ export const SURVEILLANCE_TOPICS = {
       indeterminate: 0.15,
       probableHAI: 0.10,
       definiteHAI: 0.05
+    },
+    subtypes: [
+      { code: "H3N2", label: "A(H3N2)" },
+      { code: "H1N1", label: "A(H1N1)pdm09" },
+      { code: "B",    label: "B/Victoria" }
+    ],
+    subtypeWeights: {
+      H3N2: 0.55,
+      H1N1: 0.30,
+      B:    0.15
     }
   },
 
@@ -272,5 +313,9 @@ export const TOPIC_GROUPS = {
   SCREENING: ["CPE"],
 
   // Respiratory nosocomial-classification topics.
-  RESPIRATORY: ["COVID", "INFA", "RSV"]
+  RESPIRATORY: ["COVID", "INFA", "RSV"],
+
+  // Topics that carry a `subtypes` list (used by the subtype-emergence
+  // and subtype-displacement templates and by the UI subtype filter).
+  WITH_SUBTYPES: ["CPE", "COVID", "INFA"]
 };

@@ -307,6 +307,21 @@ function haiCutoffLabel(cutoff) {
   return labels[cutoff] || labels["probable-and-definite"];
 }
 
+/**
+ * Human-readable subtype filter label for the learning record. Looks
+ * up the label from the topic's subtypes list so any renamed subtypes
+ * (e.g. new variant codes) render correctly.
+ */
+function subtypeFilterLabel(subtype, surveillance) {
+  if (!subtype || subtype === "all") return "All subtypes";
+
+  const match = surveillance?.subtypes?.find(
+    entry => entry.code === subtype
+  );
+
+  return match ? match.label : subtype;
+}
+
 function buildLearningRecordHtml({
   scenario,
   chartDataUri,
@@ -451,6 +466,11 @@ function buildLearningRecordHtml({
     <dt>Aggregation</dt><dd>${escapeHtml(aggregationLabel(displayOptions?.aggregation))}</dd>
     <dt>Time window</dt><dd>${escapeHtml(timeWindowLabel(displayOptions?.timeWindow))}</dd>
     <dt>Site / ward</dt><dd>${escapeHtml(displayOptions?.site || "all")} / ${escapeHtml(displayOptions?.ward || "all")}</dd>
+    ${
+      surveillance?.subtypes?.length
+        ? `<dt>Subtype filter</dt><dd>${escapeHtml(subtypeFilterLabel(displayOptions?.subtype, surveillance))}</dd>`
+        : ""
+    }
     <dt>Smoothing</dt><dd>${escapeHtml(smoothingLabel(displayOptions?.smoothing))}</dd>
     <dt>Control chart</dt><dd>${escapeHtml(spcLabel || "None")}</dd>
     ${

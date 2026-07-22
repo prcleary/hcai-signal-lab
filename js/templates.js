@@ -22,7 +22,7 @@
 
 import { TOPIC_GROUPS } from "./topics.js";
 
-const { ALL_BACTERAEMIA, COMMON_BACTERAEMIA, SCREENING, RESPIRATORY } =
+const { ALL_BACTERAEMIA, COMMON_BACTERAEMIA, SCREENING, RESPIRATORY, WITH_SUBTYPES } =
   TOPIC_GROUPS;
 
 export const SCENARIO_TEMPLATES = [
@@ -158,6 +158,28 @@ export const SCENARIO_TEMPLATES = [
     difficulty: 3,
     category: "surveillance-behaviour",
     appliesTo: [...RESPIRATORY]
+  },
+
+  // --- Subtype / variant templates ----------------------------------
+  //
+  // Applied to topics that carry a `subtypes` list (CPE carbapenemase
+  // genes, influenza subtypes, SARS-CoV-2 variants). Total numerator
+  // is unchanged; only the composition shifts. The learner needs the
+  // subtype filter to spot these.
+
+  {
+    id: "subtype-emergence",
+    name: "Emergence of a new subtype",
+    difficulty: 3,
+    category: "epidemiology",
+    appliesTo: [...WITH_SUBTYPES]
+  },
+  {
+    id: "subtype-displacement",
+    name: "Displacement of dominant subtype",
+    difficulty: 3,
+    category: "epidemiology",
+    appliesTo: [...WITH_SUBTYPES]
   }
 ];
 
@@ -183,7 +205,9 @@ export const CHANGE_POINT_POSITIONS = {
   "ward-closure": 0.55,
   "respiratory-community-surge": 0.55,
   "respiratory-ward-cluster": 0.60,
-  "respiratory-definition-cutoff": 0.55
+  "respiratory-definition-cutoff": 0.55,
+  "subtype-emergence": 0.50,
+  "subtype-displacement": 0.45
 };
 
 /**
@@ -247,6 +271,12 @@ export function createExplanation(template, context = {}) {
 
     case "respiratory-definition-cutoff":
       return "The surveillance case definition was tightened at the change point. Detections in the community and indeterminate bins are still occurring but are no longer being reported as HAI. Total detections appear to fall; restricting the cutoff to \"Definite HAI only\" shows no change.";
+
+    case "subtype-emergence":
+      return "A previously rare subtype grew to become a substantial fraction of the total after the change point. The total numerator was unchanged, so an unfiltered view looks flat. The pattern only becomes obvious when the subtype filter is applied.";
+
+    case "subtype-displacement":
+      return "The previously dominant subtype was gradually displaced by a challenger subtype. The total numerator was unchanged, so an unfiltered view looks flat. Applying the subtype filter to either the dominant or the challenger reveals the crossover.";
 
     default:
       return "The change is described by the template metadata; explore the ward and time-window controls to characterise it.";
