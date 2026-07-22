@@ -109,7 +109,7 @@ js/storage.js            localStorage schema v4. Keys:
 js/tips.js               Investigation tips shown on the reveal panel.
 tests/scenarios.smoke.mjs Node smoke test. No test framework, plain assertions.
 .nojekyll                Tell GitHub Pages to serve files literally.
-LICENSE                  (Empty at present.)
+LICENSE                  MIT licence.
 README.md                Learner / organiser documentation and glossary.
 AGENTS.md                This file.
 ```

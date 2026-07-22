@@ -391,7 +391,7 @@ node tests/scenarios.smoke.mjs
 
 ### Licence
 
-See [`LICENSE`](LICENSE).
+Released under the [MIT License](LICENSE).
 
 ---
 
