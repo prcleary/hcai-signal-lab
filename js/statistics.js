@@ -284,11 +284,13 @@ export function selectControlChart(
     return requestedType;
   }
 
+  // The SPC chart matches the units the learner has chosen to view,
+  // otherwise the plotted values will not change when they switch
+  // between count / rate / proportion.
   if (measure === "proportion") return "p";
+  if (measure === "count") return "c";
+  if (measure === "rate") return "u";
 
-  // For count and rate measures defer to the topic's recommended chart
-  // so, e.g., CPE counts still use a p-chart proxy via the recommended
-  // chart rather than an inappropriate c-chart.
   return surveillance.recommendedChart || "u";
 }
 

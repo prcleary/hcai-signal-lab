@@ -82,6 +82,7 @@ function collectElements() {
     "smoothingSelect",
     "smoothingWarning",
     "spcSelect",
+    "spcCaveat",
     "showTwoSd",
     "showThreeSd",
     "showSignals",
@@ -384,6 +385,8 @@ function renderApplication() {
   elements.smoothingWarning.hidden =
     Number(options.smoothing) === 0;
 
+  updateSpcCaveat(currentAnalysis.chartType);
+
   renderChart(
     elements.mainChart,
     currentAnalysis.points,
@@ -403,6 +406,39 @@ function renderApplication() {
       currentAnalysis.points,
       currentAnalysis.chartType
     );
+}
+
+function updateSpcCaveat(chartType) {
+  const recommended = scenario.surveillance.recommendedChart;
+  let message = "";
+
+  if (
+    chartType === "c" &&
+    recommended &&
+    recommended !== "c"
+  ) {
+    message =
+      "A c-chart assumes a constant area of opportunity each period. " +
+      "For this organism the denominator varies (e.g. patients screened " +
+      "or bed-days), so c-chart limits can be misleading. Consider " +
+      "viewing the rate or proportion instead.";
+  } else if (
+    chartType === "p" &&
+    scenario.surveillance.availableMeasures &&
+    !scenario.surveillance.availableMeasures.includes("proportion")
+  ) {
+    message =
+      "A p-chart is being applied to a topic that is normally monitored " +
+      "as counts or rates. The limits may not reflect the process well.";
+  }
+
+  if (message) {
+    elements.spcCaveat.textContent = message;
+    elements.spcCaveat.hidden = false;
+  } else {
+    elements.spcCaveat.textContent = "";
+    elements.spcCaveat.hidden = true;
+  }
 }
 
 function updateScenarioHeader() {
