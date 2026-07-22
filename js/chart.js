@@ -179,6 +179,17 @@ export function renderChart(
     showSignals: options.showSignals
   });
 
+  if (options.changePointDate) {
+    drawChangePointMarker({
+      context,
+      points,
+      xForIndex,
+      padding,
+      chartHeight,
+      changePointDate: options.changePointDate
+    });
+  }
+
   drawXAxisLabels({
     context,
     points,
@@ -449,6 +460,68 @@ function drawPoints({
     context.stroke();
     context.restore();
   });
+}
+
+/**
+ * Draws a subtle vertical dashed line at the aggregated data point
+ * whose date is nearest the ground-truth change-point date, plus a
+ * small "Change point" label at the top of the chart. Only rendered
+ * after the learner reveals the scenario (guarded by the caller).
+ *
+ * The nearest-point search uses ISO date comparison; the aggregated
+ * chart may not have a point exactly on the change-point week, so we
+ * pick the point with the smallest absolute date difference.
+ */
+function drawChangePointMarker({
+  context,
+  points,
+  xForIndex,
+  padding,
+  chartHeight,
+  changePointDate
+}) {
+  if (!points.length) return;
+
+  const target = new Date(changePointDate).getTime();
+  if (!Number.isFinite(target)) return;
+
+  let bestIndex = 0;
+  let bestDelta = Infinity;
+
+  for (let index = 0; index < points.length; index += 1) {
+    const dateString = points[index].date;
+    if (!dateString) continue;
+
+    const delta = Math.abs(
+      new Date(dateString).getTime() - target
+    );
+
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestIndex = index;
+    }
+  }
+
+  const x = xForIndex(bestIndex);
+
+  context.save();
+  context.strokeStyle = "#8c6d1f";
+  context.lineWidth = 1.5;
+  context.setLineDash([6, 4]);
+
+  context.beginPath();
+  context.moveTo(x, padding.top);
+  context.lineTo(x, padding.top + chartHeight);
+  context.stroke();
+
+  context.setLineDash([]);
+  context.fillStyle = "#8c6d1f";
+  context.font = "bold 12px Arial";
+  context.textAlign = "center";
+  context.textBaseline = "alphabetic";
+  context.fillText("Change point", x, padding.top - 6);
+
+  context.restore();
 }
 
 function drawXAxisLabels({

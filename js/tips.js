@@ -190,7 +190,7 @@ export const INVESTIGATION_TIPS = {
     action:
       "Reset control limits for the post-change period so future signals are meaningful. Do not report the rise as an epidemiological change; describe it as a change in ascertainment.",
     falseAlarm:
-      "A switch from culture to PCR typically increases sensitivity by 20\u201340 %. Attributing this to a real rise leads to unnecessary IPC investigation and misdirected effort."
+      "A switch from culture to a more sensitive assay (e.g. PCR / NAAT) can increase apparent case counts by anywhere from 20 % to 60 % depending on organism and prevalence. Attributing this to a real rise leads to unnecessary IPC investigation and misdirected effort."
   },
 
   "ward-closure": scenario => {

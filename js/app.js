@@ -609,7 +609,17 @@ function renderApplication() {
         currentAnalysis.points,
         scenario.surveillance,
         options.aggregation
-      )
+      ),
+      // Only surface the ground-truth change-point after the learner
+      // has revealed the scenario. Small-amplitude changes (e.g. a
+      // 55 % diagnostic-method step against Poisson noise on a
+      // low-baseline organism) are hard to locate by eye; drawing a
+      // vertical marker at reveal time keeps the pre-reveal experience
+      // honest while giving the learner an unambiguous anchor after.
+      changePointDate:
+        scenario.learnerState.revealed
+          ? scenario.groundTruth.changePointDate
+          : null
     }
   );
 

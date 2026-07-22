@@ -260,7 +260,7 @@ export function createExplanation(template, context = {}) {
       return "The underlying rate was stepped up by roughly a factor of two after the change point. The step is sustained.";
 
     case "gradual-trend":
-      return "The underlying rate drifts slowly upward from the change point, reaching about 1.6\u00d7 baseline by the end of the window.";
+      return "The underlying rate drifts slowly upward from the change point, reaching about 2.5\u00d7 baseline by the end of the window.";
 
     case "local-outbreak":
       return `A short cluster of unusually high weeks was seeded on ${affectedWard}. Other wards were left unchanged, so the whole-hospital view dilutes the signal.`;

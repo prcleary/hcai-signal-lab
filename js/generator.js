@@ -267,28 +267,37 @@ function applyReportingArtefact(
  * denominator (bed-days) is untouched because these represent changes
  * in how cases are counted, not changes in patient activity.
  *
- *   case-definition-change    Tightened definition removes ~35 % of
- *                             cases. Sustained step-down in count and
- *                             rate.
- *   diagnostic-method-change  New method has ~35 % higher sensitivity.
- *                             Sustained step-up in count and rate.
+ *   case-definition-change    Tightened definition removes ~45 % of
+ *                             cases (binomial thinning at p=0.55).
+ *                             Sustained step-down in count and rate.
+ *   diagnostic-method-change  New method adds ~55 % more cases on top
+ *                             (Poisson-distributed extras). Sustained
+ *                             step-up in count and rate.
+ *
+ * We use stochastic thinning / inflation rather than a straight
+ * multiply-and-round so that the effective post-change ratio matches
+ * the intended multiplier even at the low per-ward weekly counts of
+ * the bacteraemia topics. Rounding 1 * 0.55 always yields 1, which
+ * biases the observed ratio upward toward 0.75 - 0.80 and hides the
+ * step; binomial thinning yields the true 0.55 on average.
  */
 function applyGamingNumeratorArtefact(
   numerator,
   template,
   weekIndex,
-  changePoint
+  changePoint,
+  random
 ) {
   if (changePoint == null || weekIndex < changePoint) {
     return numerator;
   }
 
   if (template.id === "case-definition-change") {
-    return Math.round(numerator * 0.65);
+    return randomBinomial(random, numerator, 0.55);
   }
 
   if (template.id === "diagnostic-method-change") {
-    return Math.round(numerator * 1.35);
+    return numerator + randomPoisson(random, numerator * 0.55);
   }
 
   return numerator;
@@ -1031,7 +1040,8 @@ function generateWeeklyObservation({
     afterReportingArtefact,
     template,
     weekIndex,
-    changePoint
+    changePoint,
+    random
   );
 
   return {
