@@ -1,0 +1,141 @@
+// js/storage.js
+
+const CURRENT_KEY =
+  "hcai-signal-lab.current.v1";
+
+const HISTORY_KEY =
+  "hcai-signal-lab.history.v1";
+
+const HISTORY_LIMIT = 20;
+
+export function wasBrowserReload() {
+  const entries =
+    performance.getEntriesByType("navigation");
+
+  return entries[0]?.type === "reload";
+}
+
+export function saveCurrentScenario(scenario) {
+  try {
+    localStorage.setItem(
+      CURRENT_KEY,
+      JSON.stringify(scenario)
+    );
+
+    return true;
+  } catch (error) {
+    console.error(
+      "The scenario could not be saved.",
+      error
+    );
+
+    return false;
+  }
+}
+
+export function loadCurrentScenario() {
+  try {
+    const stored =
+      localStorage.getItem(CURRENT_KEY);
+
+    return stored
+      ? JSON.parse(stored)
+      : null;
+  } catch (error) {
+    console.error(
+      "The stored scenario could not be loaded.",
+      error
+    );
+
+    return null;
+  }
+}
+
+export function loadScenarioHistory() {
+  try {
+    const stored =
+      localStorage.getItem(HISTORY_KEY);
+
+    return stored
+      ? JSON.parse(stored)
+      : [];
+  } catch (error) {
+    console.error(
+      "Scenario history could not be loaded.",
+      error
+    );
+
+    return [];
+  }
+}
+
+export function archiveCurrentScenario() {
+  const current = loadCurrentScenario();
+
+  if (!current) return;
+
+  const history = loadScenarioHistory();
+
+  const withoutCurrent = history.filter(
+    scenario => scenario.id !== current.id
+  );
+
+  withoutCurrent.unshift(current);
+
+  try {
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(
+        withoutCurrent.slice(0, HISTORY_LIMIT)
+      )
+    );
+  } catch (error) {
+    console.error(
+      "Scenario history could not be saved.",
+      error
+    );
+  }
+}
+
+export function startNewStoredScenario(scenario) {
+  archiveCurrentScenario();
+  saveCurrentScenario(scenario);
+}
+
+export function restorePreviousScenario() {
+  const current = loadCurrentScenario();
+  const history = loadScenarioHistory();
+
+  if (!history.length) return null;
+
+  const previous = history.shift();
+
+  if (current) {
+    history.push(current);
+  }
+
+  try {
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(
+        history.slice(0, HISTORY_LIMIT)
+      )
+    );
+
+    saveCurrentScenario(previous);
+  } catch (error) {
+    console.error(
+      "The previous scenario could not be restored.",
+      error
+    );
+
+    return null;
+  }
+
+  return previous;
+}
+
+export function clearStoredScenarios() {
+  localStorage.removeItem(CURRENT_KEY);
+  localStorage.removeItem(HISTORY_KEY);
+}

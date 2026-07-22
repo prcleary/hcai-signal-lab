@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>HCAI Signal Lab</title>
+
+  <meta
+    name="description"
+    content="Explore HCAI surveillance, statistical process control and outbreak signals using synthetic UK hospital data."
+  >
+
+  <link rel="stylesheet" href="css/app.css">
+</head>
+
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="app-header">
+    <div>
+      <p class="product-category">HCAI epidemiology training</p>
+      <h1>HCAI Signal Lab</h1>
+      <p class="subtitle">
+        Explore variation, trends and outbreak signals using synthetic data
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <button id="restoreButton" class="button button-secondary" type="button">
+        Restore previous
+      </button>
+
+      <button id="newScenarioButton" class="button button-primary" type="button">
+        New scenario
+      </button>
+    </div>
+  </header>
+
+  <div class="synthetic-banner" role="status">
+    <strong>Fictional hospital — synthetic educational data.</strong>
+    Do not use this application for clinical decision-making.
+  </div>
+
+  <main id="main-content">
+    <section class="scenario-header" aria-labelledby="scenarioTitle">
+      <div>
+        <p id="hospitalName" class="hospital-name"></p>
+        <h2 id="scenarioTitle">Loading scenario…</h2>
+        <p id="scenarioDescription" class="scenario-description"></p>
+      </div>
+
+      <dl class="scenario-metadata">
+        <div>
+          <dt>Scenario code</dt>
+          <dd id="scenarioCode"></dd>
+        </div>
+        <div>
+          <dt>Hospital type</dt>
+          <dd id="hospitalType"></dd>
+        </div>
+        <div>
+          <dt>Current view</dt>
+          <dd id="currentViewDescription"></dd>
+        </div>
+      </dl>
+    </section>
+
+    <div class="workspace">
+      <aside class="control-panel" aria-label="Chart controls">
+        <section class="control-group">
+          <h3>Display</h3>
+
+          <label for="measureSelect">Measure</label>
+          <select id="measureSelect"></select>
+
+          <label for="timeWindowSelect">Time period</label>
+          <select id="timeWindowSelect">
+            <option value="26">Most recent 6 months</option>
+            <option value="52" selected>Most recent 12 months</option>
+            <option value="104">Most recent 2 years</option>
+            <option value="156">All available data</option>
+          </select>
+
+          <label for="aggregationSelect">Aggregation</label>
+          <select id="aggregationSelect">
+            <option value="1" selected>Weekly</option>
+            <option value="4">Four-weekly</option>
+            <option value="13">Quarterly</option>
+          </select>
+        </section>
+
+        <section class="control-group">
+          <h3>Location</h3>
+
+          <label for="siteSelect">Site</label>
+          <select id="siteSelect"></select>
+
+          <label for="wardSelect">Ward or service</label>
+          <select id="wardSelect"></select>
+        </section>
+
+        <section class="control-group">
+          <h3>Presentation</h3>
+
+          <label for="smoothingSelect">Smoothing</label>
+          <select id="smoothingSelect">
+            <option value="0" selected>None</option>
+            <option value="3">3-period moving mean</option>
+            <option value="5">5-period moving mean</option>
+          </select>
+
+          <p id="smoothingWarning" class="information-box" hidden>
+            Smoothing can clarify longer patterns, but may delay signals,
+            obscure short outbreaks and produce unstable end effects.
+          </p>
+        </section>
+
+        <section class="control-group">
+          <h3>Statistical process control</h3>
+
+          <label for="spcSelect">Control chart</label>
+          <select id="spcSelect">
+            <option value="none">No control limits</option>
+            <option value="auto" selected>Recommended chart</option>
+            <option value="p">p-chart</option>
+            <option value="c">c-chart</option>
+            <option value="u">u-chart</option>
+          </select>
+
+          <fieldset>
+            <legend>Limits and signals</legend>
+
+            <label class="checkbox-label">
+              <input id="showTwoSd" type="checkbox" checked>
+              Show 2-SD warning limits
+            </label>
+
+            <label class="checkbox-label">
+              <input id="showThreeSd" type="checkbox" checked>
+              Show 3-SD control limits
+            </label>
+
+            <label class="checkbox-label">
+              <input id="showSignals" type="checkbox" checked>
+              Highlight SPC signals
+            </label>
+          </fieldset>
+        </section>
+      </aside>
+
+      <section class="chart-panel" aria-labelledby="chartHeading">
+        <div class="chart-toolbar">
+          <div>
+            <h3 id="chartHeading">Surveillance chart</h3>
+            <p id="chartSubtitle"></p>
+          </div>
+
+          <div class="chart-actions">
+            <button id="downloadPngButton" class="button button-secondary" type="button">
+              Save PNG
+            </button>
+
+            <button id="downloadCsvButton" class="button button-secondary" type="button">
+              Save CSV
+            </button>
+
+            <button id="downloadJsonButton" class="button button-secondary" type="button">
+              Save scenario
+            </button>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <canvas
+            id="mainChart"
+            width="1200"
+            height="620"
+            role="img"
+            aria-describedby="chartSummary"
+          ></canvas>
+        </div>
+
+        <p id="chartSummary" class="screen-reader-summary"></p>
+
+        <div id="legend" class="chart-legend" aria-label="Chart legend"></div>
+
+        <section class="signal-panel" aria-labelledby="signalsHeading">
+          <h3 id="signalsHeading">Signal summary</h3>
+          <div id="signalSummary"></div>
+        </section>
+      </section>
+    </div>
+
+    <section class="lower-grid">
+      <section class="card" aria-labelledby="interpretationHeading">
+        <h2 id="interpretationHeading">Your interpretation</h2>
+
+        <label for="investigateSelect">Would you investigate now?</label>
+        <select id="investigateSelect">
+          <option value="">Select an answer</option>
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+          <option value="uncertain">Uncertain — more information is needed</option>
+        </select>
+
+        <label for="learnerNotes">Interpretation and chart annotations</label>
+        <textarea
+          id="learnerNotes"
+          rows="7"
+          placeholder="Record what you noticed, possible explanations and additional information you would request."
+        ></textarea>
+
+        <button id="saveNotesButton" class="button button-primary" type="button">
+          Save interpretation
+        </button>
+      </section>
+
+      <section class="card" aria-labelledby="actionLogHeading">
+        <h2 id="actionLogHeading">Analysis trail</h2>
+        <ol id="actionLog" class="action-log"></ol>
+      </section>
+    </section>
+
+    <section class="card reveal-card" aria-labelledby="revealHeading">
+      <div class="reveal-header">
+        <div>
+          <h2 id="revealHeading">Scenario explanation</h2>
+          <p>
+            Complete your investigation before revealing the generated
+            scenario’s underlying explanation.
+          </p>
+        </div>
+
+        <button id="revealButton" class="button button-warning" type="button">
+          Reveal explanation
+        </button>
+      </div>
+
+      <div id="revealContent" hidden></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>
+      HCAI Signal Lab uses wholly synthetic data and fictional organisations.
+    </p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
