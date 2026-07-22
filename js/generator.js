@@ -1215,7 +1215,7 @@ export function generateScenario(seed = generateSeed(), options = {}) {
     : null;
 
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     id: `scenario-${seed.toString(16)}`,
     seed,
     generatedAt: new Date().toISOString(),
