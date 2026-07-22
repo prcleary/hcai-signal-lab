@@ -750,6 +750,29 @@ main {
   border-left: 6px solid var(--clinical-orange);
 }
 
+/*
+ * When the reveal card sits inside the chart panel it should feel like
+ * another section of the same panel rather than a second floating card
+ * on the same background. Strip the card's own shadow / rounded
+ * background and pull it in with a top divider, matching how the
+ * interpretation card is styled. The orange left stripe is kept as the
+ * visual identifier of the reveal / warning affordance.
+ */
+.chart-panel .reveal-card {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-top: 1px solid var(--border);
+  border-left: 4px solid var(--clinical-orange);
+  padding: 12px 0 0 12px;
+  max-width: none;
+}
+
+.chart-panel .reveal-card h2 {
+  font-size: 1rem;
+  margin-top: 0;
+}
+
 .reveal-header {
   display: flex;
   justify-content: space-between;
