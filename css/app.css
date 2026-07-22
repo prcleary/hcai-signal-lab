@@ -583,6 +583,26 @@ main {
   max-width: 900px;
 }
 
+/*
+ * When the interpretation card lives inside the chart panel (below the
+ * signal-summary details) we want it to read as a subordinate section
+ * rather than a second card floating on the same background. Strip the
+ * card's own shadow / rounded background and use a top border to tie it
+ * visually to the panel above.
+ */
+.chart-panel .interpretation-card {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-top: 1px solid var(--border);
+  padding: 12px 0 0;
+  max-width: none;
+}
+
+.chart-panel .interpretation-card h2 {
+  font-size: 1rem;
+}
+
 .interpretation-hint {
   margin: 8px 0 0;
   color: var(--muted);
