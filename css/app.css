@@ -1,3 +1,8 @@
+/* css/app.css
+ * HCAI Signal Lab — clinical UK palette inspired by NHS-style guidance.
+ * Wholly synthetic training tool; no clinical use.
+ */
+
 :root {
   --clinical-blue: #005eb8;
   --clinical-dark-blue: #003087;
@@ -16,4 +21,580 @@
   --panel: #ffffff;
 
   --focus: #ffb81c;
+
+  --radius: 6px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06),
+            0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Frutiger W01", "Segoe UI", Arial, sans-serif;
+  color: var(--text);
+  background: var(--background);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--clinical-dark-blue);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* --- Skip link ---------------------------------------------------------- */
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--clinical-dark-blue);
+  color: #fff;
+  padding: 8px 12px;
+  z-index: 1000;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
+}
+
+/* --- Header ------------------------------------------------------------- */
+
+.app-header {
+  background: var(--clinical-blue);
+  color: #fff;
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  border-bottom: 4px solid var(--clinical-dark-blue);
+}
+
+.app-header h1 {
+  margin: 4px 0 6px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.product-category {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  opacity: 0.9;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.95;
+  max-width: 60ch;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* --- Buttons ------------------------------------------------------------ */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 2px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.button-primary {
+  background: var(--clinical-green);
+  color: #fff;
+}
+
+.button-primary:hover,
+.button-primary:focus-visible {
+  background: #005f2c;
+}
+
+.button-secondary {
+  background: #fff;
+  color: var(--clinical-dark-blue);
+  border-color: var(--clinical-dark-blue);
+}
+
+.button-secondary:hover,
+.button-secondary:focus-visible {
+  background: #eaf1fb;
+}
+
+.button-warning {
+  background: var(--clinical-orange);
+  color: #231f20;
+}
+
+.button-warning:hover,
+.button-warning:focus-visible {
+  background: #c97600;
+  color: #fff;
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Synthetic-data banner --------------------------------------------- */
+
+.synthetic-banner {
+  background: #fff4d5;
+  color: #4a3a00;
+  border-bottom: 2px solid var(--focus);
+  padding: 10px 32px;
+  font-size: 0.95rem;
+}
+
+.synthetic-banner strong {
+  margin-right: 6px;
+}
+
+/* --- Main layout -------------------------------------------------------- */
+
+main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 32px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* --- Scenario header ---------------------------------------------------- */
+
+.scenario-header {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.scenario-header h2 {
+  margin: 4px 0 6px;
+  font-size: 1.5rem;
+  color: var(--clinical-dark-blue);
+}
+
+.hospital-name {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+
+.scenario-description {
+  margin: 0;
+  color: var(--muted);
+  max-width: 60ch;
+}
+
+.scenario-metadata {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px 24px;
+  min-width: 280px;
+}
+
+.scenario-metadata > div {
+  border-left: 3px solid var(--clinical-aqua);
+  padding-left: 10px;
+}
+
+.scenario-metadata dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+}
+
+.scenario-metadata dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* --- Workspace: controls + chart --------------------------------------- */
+
+.workspace {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.control-panel {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.control-group:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.control-group h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: var(--clinical-dark-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.control-panel label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.control-panel select,
+.control-panel input[type="text"],
+.control-panel textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--text);
+}
+
+.control-panel fieldset {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-top: 6px;
+}
+
+.control-panel legend {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 6px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px !important;
+  font-weight: 500 !important;
+  color: var(--text) !important;
+}
+
+.checkbox-label input {
+  width: 18px;
+  height: 18px;
+}
+
+.information-box {
+  background: #eaf1fb;
+  border-left: 4px solid var(--clinical-bright-blue);
+  padding: 8px 10px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  border-radius: 4px;
+}
+
+/* --- Chart panel -------------------------------------------------------- */
+
+.chart-panel {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.chart-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.chart-toolbar h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--clinical-dark-blue);
+}
+
+.chart-toolbar p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.chart-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chart-container {
+  width: 100%;
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.chart-container canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.screen-reader-summary {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.chart-legend .legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-legend .legend-swatch {
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--clinical-blue);
+}
+
+/* --- Signal panel ------------------------------------------------------- */
+
+.signal-panel {
+  background: #f7fafc;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 12px 16px;
+}
+
+.signal-panel h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: var(--clinical-dark-blue);
+}
+
+.signal-panel ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.signal-panel li {
+  margin-bottom: 4px;
+}
+
+/* --- Lower grid: interpretation + action log --------------------------- */
+
+.lower-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) {
+  .lower-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card h2 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  color: var(--clinical-dark-blue);
+}
+
+.card label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.card select,
+.card textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+  color: var(--text);
+}
+
+.card textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.card .button {
+  align-self: flex-start;
+}
+
+.action-log {
+  margin: 0;
+  padding-left: 18px;
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.action-log li {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.action-log li:last-child {
+  border-bottom: 0;
+}
+
+/* --- Reveal card -------------------------------------------------------- */
+
+.reveal-card {
+  border-left: 6px solid var(--clinical-orange);
+}
+
+.reveal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.reveal-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  max-width: 60ch;
+}
+
+#revealContent h3 {
+  margin: 12px 0 4px;
+  color: var(--clinical-dark-blue);
+}
+
+#revealContent p {
+  margin: 4px 0;
+  color: var(--text);
+}
+
+/* --- Footer ------------------------------------------------------------- */
+
+.app-footer {
+  border-top: 1px solid var(--border);
+  padding: 16px 32px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  background: #fff;
+  margin-top: 24px;
+}
+
+/* --- Small screens ------------------------------------------------------ */
+
+@media (max-width: 600px) {
+  .app-header,
+  .synthetic-banner,
+  main,
+  .app-footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .app-header h1 {
+    font-size: 1.4rem;
+  }
 }
