@@ -23,7 +23,7 @@ export function renderChart(
   const height = canvas.height;
 
   const padding = {
-    top: 45,
+    top: 55,
     right: 55,
     bottom: 80,
     left: 85
@@ -219,11 +219,23 @@ export function renderChart(
     context.fillStyle = "#231f20";
     context.font = "bold 14px Arial";
     context.textAlign = "left";
+    context.textBaseline = "alphabetic";
     context.fillText(
       options.spcLabel,
       padding.left,
       24
     );
+
+    if (options.denominatorLabel) {
+      context.fillStyle = "#425563";
+      context.font = "13px Arial";
+      context.fillText(
+        options.denominatorLabel,
+        padding.left,
+        40
+      );
+    }
+
     context.restore();
   }
 }

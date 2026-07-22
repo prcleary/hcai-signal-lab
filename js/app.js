@@ -524,12 +524,18 @@ function renderApplication() {
       showSignals: options.showSignals,
       smoothing: options.smoothing,
       yAxisTitle: getYAxisTitle(
-        options.measure
+        options.measure,
+        options.aggregation
       ),
       integerYAxis: options.measure === "count",
       spcLabel: getSpcLabel(
         currentAnalysis.chartType,
         scenario.surveillance
+      ),
+      denominatorLabel: getDenominatorLabel(
+        currentAnalysis.points,
+        scenario.surveillance,
+        options.aggregation
       )
     }
   );
@@ -987,18 +993,63 @@ function formatAction(action) {
   return labels[action.type] || action.type;
 }
 
-function getYAxisTitle(measure) {
+function getYAxisTitle(measure, aggregation) {
+  const surveillance = scenario.surveillance;
+  const period = getPeriodLabel(aggregation);
+
   if (measure === "count") {
-    return scenario.surveillance.numeratorLabel;
+    return `${surveillance.numeratorLabel} per ${period}`;
   }
 
   if (measure === "proportion") {
-    return "Screen-positive patients (%)";
+    return `Percentage positive of ${surveillance.denominatorLabel.toLowerCase()}`;
   }
 
   return `Cases per ${
-    scenario.surveillance.rateMultiplier.toLocaleString("en-GB")
-  } ${scenario.surveillance.denominatorLabel.toLowerCase()}`;
+    surveillance.rateMultiplier.toLocaleString("en-GB")
+  } ${surveillance.denominatorLabel.toLowerCase()}`;
+}
+
+function getPeriodLabel(aggregation) {
+  const labels = {
+    1: "week",
+    4: "four weeks",
+    13: "quarter"
+  };
+
+  return labels[Number(aggregation)] || "period";
+}
+
+/**
+ * Short line drawn below the SPC label describing the underlying
+ * denominator so the learner can interpret both counts and rates in
+ * context (e.g. "5 cases per week over about 4,500 bed-days").
+ */
+function getDenominatorLabel(points, surveillance, aggregation) {
+  if (!surveillance || !surveillance.denominatorLabel) {
+    return "";
+  }
+
+  const denominators = (points || [])
+    .map(point => point.denominator)
+    .filter(value => Number.isFinite(value) && value > 0);
+
+  if (!denominators.length) {
+    return `Denominator: ${surveillance.denominatorLabel.toLowerCase()}`;
+  }
+
+  const sorted = [...denominators].sort(
+    (first, second) => first - second
+  );
+
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const period = getPeriodLabel(aggregation);
+
+  return `Denominator: ${
+    surveillance.denominatorLabel.toLowerCase()
+  } \u00b7 median ${
+    Math.round(median).toLocaleString("en-GB")
+  } per ${period}`;
 }
 
 function formatDate(dateString) {
