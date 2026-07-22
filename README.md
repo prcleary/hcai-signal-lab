@@ -7,13 +7,15 @@ they see warrants investigation. When they commit to an answer the app
 reveals the underlying epidemiological or surveillance story that
 generated the data.
 
-All data are wholly synthetic. Hospital names, trusts, wards and
-scenario codes are randomly generated. The app is intended for teaching
-only and must not be used for clinical decision-making.
+All data are wholly synthetic. Hospital names, trusts and wards are
+randomly generated. The app is intended for teaching only and must not
+be used for clinical decision-making.
 
 The application is a pure static site: no build step, no server, no
 tracking, no external network calls. It also installs as a Progressive
 Web App and works offline.
+
+**Use it here:** [HCAI Signal Lab](https://prcleary.github.io/hcai-signal-lab/)
 
 ---
 
@@ -32,10 +34,10 @@ explains the epidemiological and NHS terms you will meet along the way.
 
 ### 1. Open the app
 
-Open [`index.html`](index.html) in any modern browser (Chrome, Edge,
-Firefox or Safari). If your organiser has hosted the app on a web
-address, just visit that URL. There is nothing to install and no
-account to create.
+Open [HCAI Signal Lab](https://prcleary.github.io/hcai-signal-lab/) in
+any modern browser (Chrome, Edge, Firefox or Safari). If your organiser
+has hosted their own copy on a different web address, use that URL
+instead. There is nothing to install and no account to create.
 
 Once loaded, the app can be used entirely **offline** — you can install
 it to your home screen or start menu from the browser's "Install app"
@@ -55,8 +57,6 @@ At the top of the page you will see:
 - **Topic / organism** — the infection under surveillance, e.g. *MSSA
   bacteraemia* or *Clostridioides difficile infection*. This is the
   "what is being counted".
-- **Scenario code** — a stable identifier (e.g. `scenario-5c85574a`)
-  you can quote when discussing the scenario with a colleague or tutor.
 - **Hospital type** — e.g. *Multi-site acute hospital*, *Specialist and
   acute hospital*. Some scenarios rely on this — for example a
   multi-site trust will have several sites to compare.
@@ -272,10 +272,14 @@ The learning objectives are:
 The app is a static site with no build step. Any of the following
 work:
 
-- **Local, single laptop**: open [`index.html`](index.html) directly.
+- **Hosted copy**: the canonical build lives at
+  [https://prcleary.github.io/hcai-signal-lab/](https://prcleary.github.io/hcai-signal-lab/)
+  and is suitable for most workshops.
+- **Local, single laptop**: clone or download this repository and open
+  `index.html` directly in a browser. The app is fully self-contained.
 - **Room without wifi**: put the folder on a USB stick or shared drive
-  and open the file. The app is fully self-contained.
-- **Web-hosted**: upload the whole folder (preserving structure) to
+  and open the file. No network required.
+- **Self-hosted**: upload the whole folder (preserving structure) to
   any static host. GitHub Pages, Netlify, Cloudflare Pages and
   internal SharePoint / IIS all work. Serve from the folder root so
   that `service-worker.js` is at the origin scope.
@@ -299,9 +303,9 @@ Suggested structure for a 90-minute session:
    scenarios each. Ask them to write an interpretation *before*
    revealing. Recommend they leave *Difficulty* on *Mixed*.
 4. **20 min — Debrief.** Ask each pair to present one scenario using
-   its **Scenario code** — everyone else can restore the same
-   scenario from their **Past scenarios** menu (if they encountered
-   it) or discuss from the presented chart image / learning record.
+   their saved learning record (HTML) or a PNG of the chart. Group
+   discussion focuses on the interpretation, the artefacts each
+   learner considered and the questions they would ask next.
 5. **5 min — Wrap-up.** Cover what artefacts look like vs. real
    outbreaks; when to escalate.
 
@@ -342,9 +346,8 @@ information must.
   date (April 2019 CDI apportionment framework, reaffirmed in the
   April 2023 revision).
 - Bed-days, device-days, procedures, screening volumes and case
-  counts are generated from a seeded pseudo-random number generator
-  so that a given scenario code always regenerates the same series on
-  any device.
+  counts are generated from a seeded pseudo-random number generator,
+  so the same scenario always regenerates identically on any device.
 - The scenarios are designed to be pedagogically clean: real
   surveillance data are messier. The app is a teaching aid, not a
   simulator of any real trust or dataset.
