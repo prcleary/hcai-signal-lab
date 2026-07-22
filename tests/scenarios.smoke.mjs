@@ -28,6 +28,7 @@ import {
   INVESTIGATION_TIPS,
   resolveInvestigationTip
 } from "../js/tips.js";
+import { applyHaiCutoff } from "../js/statistics.js";
 
 const TIP_FIELDS = [
   "pattern",
@@ -190,6 +191,131 @@ assert(
   sawTestingReduction,
   "no testing-reduction scenario was produced in 2000 seeds"
 );
+
+// --- 7. Respiratory-HAI observations carry consistent onset bins -------
+//
+// For every respiratory-hai observation:
+//   numerator === sum(community + indeterminate + probableHAI + definiteHAI)
+// This exercises the generator's Poisson-then-reporting-artefact
+// rescaling path.
+
+let sawRespiratory = false;
+for (let seed = 1; seed <= 4000 && !sawRespiratory; seed += 1) {
+  const scenario = generateScenario(seed);
+
+  if (scenario.surveillance.surveillanceKind !== "respiratory-hai") {
+    continue;
+  }
+
+  sawRespiratory = true;
+
+  for (const obs of scenario.observations) {
+    assert(
+      obs.onsetBins &&
+        typeof obs.onsetBins.community === "number" &&
+        typeof obs.onsetBins.indeterminate === "number" &&
+        typeof obs.onsetBins.probableHAI === "number" &&
+        typeof obs.onsetBins.definiteHAI === "number",
+      "respiratory observation should have onsetBins with 4 numeric fields"
+    );
+
+    const sum =
+      obs.onsetBins.community +
+      obs.onsetBins.indeterminate +
+      obs.onsetBins.probableHAI +
+      obs.onsetBins.definiteHAI;
+
+    assert(
+      sum === obs.numerator,
+      `respiratory observation: numerator (${obs.numerator}) should equal sum of onsetBins (${sum})`
+    );
+  }
+
+  assert(
+    scenario.learnerState.display.haiCutoff === "probable-and-definite",
+    "respiratory scenarios must default haiCutoff to probable-and-definite"
+  );
+}
+assert(
+  sawRespiratory,
+  "no respiratory-hai scenario was produced in 4000 seeds \u2014 topics.js may not export COVID/INFA/RSV"
+);
+
+// --- 8. Each respiratory template is produced at least once ------------
+
+const respiratoryTemplateIds = [
+  "respiratory-community-surge",
+  "respiratory-ward-cluster",
+  "respiratory-definition-cutoff"
+];
+
+for (const templateId of respiratoryTemplateIds) {
+  let seen = false;
+
+  for (let seed = 1; seed <= 6000 && !seen; seed += 1) {
+    const scenario = generateScenario(seed);
+
+    if (scenario.groundTruth.templateId === templateId) {
+      seen = true;
+
+      if (templateId === "respiratory-ward-cluster") {
+        assert(
+          typeof scenario.groundTruth.affectedWard === "string" &&
+            scenario.groundTruth.affectedWard.length > 0,
+          "respiratory-ward-cluster must record affectedWard"
+        );
+      }
+    }
+  }
+
+  assert(
+    seen,
+    `no ${templateId} scenario produced in 6000 seeds`
+  );
+}
+
+// --- 9. applyHaiCutoff sums the correct bins ---------------------------
+
+const syntheticPoints = [
+  {
+    date: "2024-01-01",
+    numerator: 999,
+    denominator: 1000,
+    onsetBins: {
+      community: 10,
+      indeterminate: 4,
+      probableHAI: 3,
+      definiteHAI: 2
+    }
+  },
+  {
+    date: "2024-01-08",
+    numerator: 999,
+    denominator: 1000,
+    onsetBins: null
+  }
+];
+
+const expectedByCutoff = {
+  "all": 19,
+  "excluding-community": 9,
+  "probable-and-definite": 5,
+  "definite-only": 2
+};
+
+for (const [cutoff, expected] of Object.entries(expectedByCutoff)) {
+  const result = applyHaiCutoff(syntheticPoints, cutoff);
+
+  assert(
+    result[0].numerator === expected,
+    `applyHaiCutoff("${cutoff}") should set numerator to ${expected}, got ${result[0].numerator}`
+  );
+
+  assert(
+    result[1].numerator === 999,
+    `applyHaiCutoff must leave points without onsetBins unchanged (got ${result[1].numerator})`
+  );
+}
 
 // --- Report ------------------------------------------------------------
 

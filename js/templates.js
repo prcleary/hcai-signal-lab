@@ -22,7 +22,8 @@
 
 import { TOPIC_GROUPS } from "./topics.js";
 
-const { ALL_BACTERAEMIA, COMMON_BACTERAEMIA, SCREENING } = TOPIC_GROUPS;
+const { ALL_BACTERAEMIA, COMMON_BACTERAEMIA, SCREENING, RESPIRATORY } =
+  TOPIC_GROUPS;
 
 export const SCENARIO_TEMPLATES = [
   {
@@ -30,28 +31,28 @@ export const SCENARIO_TEMPLATES = [
     name: "Stable common-cause variation",
     difficulty: 1,
     category: "epidemiology",
-    appliesTo: [...ALL_BACTERAEMIA, ...SCREENING]
+    appliesTo: [...ALL_BACTERAEMIA, ...SCREENING, ...RESPIRATORY]
   },
   {
     id: "single-extreme",
     name: "Isolated extreme observation",
     difficulty: 1,
     category: "epidemiology",
-    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING]
+    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING, ...RESPIRATORY]
   },
   {
     id: "step-increase",
     name: "Sustained step increase",
     difficulty: 1,
     category: "epidemiology",
-    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING]
+    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING, ...RESPIRATORY]
   },
   {
     id: "gradual-trend",
     name: "Gradual underlying increase",
     difficulty: 2,
     category: "epidemiology",
-    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING]
+    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING, ...RESPIRATORY]
   },
   {
     id: "local-outbreak",
@@ -60,7 +61,7 @@ export const SCENARIO_TEMPLATES = [
     category: "epidemiology",
     // Kept broad because the generator boosts the multiplier for
     // low-baseline organisms so the outbreak remains visible.
-    appliesTo: [...ALL_BACTERAEMIA, ...SCREENING]
+    appliesTo: [...ALL_BACTERAEMIA, ...SCREENING, ...RESPIRATORY]
   },
   {
     id: "seasonality",
@@ -69,8 +70,10 @@ export const SCENARIO_TEMPLATES = [
     category: "epidemiology",
     // Seasonality is most defensible for CDI (winter norovirus /
     // antibiotic-prescribing cycle) and E. coli (summer dehydration and
-    // urinary-tract seasonality). Other bacteraemias have weaker
-    // seasonal signals in UK data.
+    // urinary-tract seasonality). Respiratory topics carry seasonality
+    // as a topic-level baseline effect (see topics.js), so this template
+    // is not used for them; a "seasonality template" over an already
+    // seasonal baseline would double the signal.
     appliesTo: ["CDI", "ECOLI"]
   },
   {
@@ -92,14 +95,14 @@ export const SCENARIO_TEMPLATES = [
     name: "Changing denominator",
     difficulty: 3,
     category: "surveillance-behaviour",
-    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING]
+    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING, ...RESPIRATORY]
   },
   {
     id: "reporting-artefact",
     name: "Reporting delay or batch reporting",
     difficulty: 3,
     category: "surveillance-behaviour",
-    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING]
+    appliesTo: [...COMMON_BACTERAEMIA, ...SCREENING, ...RESPIRATORY]
   },
 
   // --- Surveillance-behaviour / data-quality templates ---------------
@@ -130,7 +133,31 @@ export const SCENARIO_TEMPLATES = [
     name: "Ward closure or decant",
     difficulty: 3,
     category: "surveillance-behaviour",
-    appliesTo: [...COMMON_BACTERAEMIA]
+    appliesTo: [...COMMON_BACTERAEMIA, ...RESPIRATORY]
+  },
+
+  // --- Respiratory-HAI-specific templates ---------------------------
+
+  {
+    id: "respiratory-community-surge",
+    name: "Community surge with hospital spill-over",
+    difficulty: 2,
+    category: "epidemiology",
+    appliesTo: [...RESPIRATORY]
+  },
+  {
+    id: "respiratory-ward-cluster",
+    name: "Nosocomial ward cluster (definite HAI)",
+    difficulty: 2,
+    category: "epidemiology",
+    appliesTo: [...RESPIRATORY]
+  },
+  {
+    id: "respiratory-definition-cutoff",
+    name: "HAI definition cutoff change",
+    difficulty: 3,
+    category: "surveillance-behaviour",
+    appliesTo: [...RESPIRATORY]
   }
 ];
 
@@ -153,7 +180,10 @@ export const CHANGE_POINT_POSITIONS = {
   "testing-reduction": 0.55,
   "case-definition-change": 0.55,
   "diagnostic-method-change": 0.55,
-  "ward-closure": 0.55
+  "ward-closure": 0.55,
+  "respiratory-community-surge": 0.55,
+  "respiratory-ward-cluster": 0.60,
+  "respiratory-definition-cutoff": 0.55
 };
 
 /**
@@ -208,6 +238,15 @@ export function createExplanation(template, context = {}) {
 
     case "ward-closure":
       return `${affectedWard} was closed for the remainder of the window. Its bed-days and cases both fell to near zero at the change point; the trust-wide rate was largely unchanged.`;
+
+    case "respiratory-community-surge":
+      return "A large community wave began at the change point. Community-onset detections rose sharply; hospital-onset detections rose more gradually a week or two later as admitted patients incubated and as staff-to-patient transmission stepped up. The trust-wide totals track the community surge more than in-hospital IPC.";
+
+    case "respiratory-ward-cluster":
+      return `A nosocomial cluster occurred on ${affectedWard}. Definite-HAI (onset \u226515 days from admission) dominated the affected weeks on that ward. At trust level the signal is diluted; at the affected ward with the cutoff set to \"Definite HAI only\" it becomes obvious.`;
+
+    case "respiratory-definition-cutoff":
+      return "The surveillance case definition was tightened at the change point. Detections in the community and indeterminate bins are still occurring but are no longer being reported as HAI. Total detections appear to fall; restricting the cutoff to \"Definite HAI only\" shows no change.";
 
     default:
       return "The change is described by the template metadata; explore the ward and time-window controls to characterise it.";

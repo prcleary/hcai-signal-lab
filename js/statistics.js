@@ -29,7 +29,11 @@ export function filterObservations(
 }
 
 /**
- * Combines all ward records that share the same week.
+ * Combines all ward records that share the same week. Respiratory-HAI
+ * observations carry an `onsetBins` object (community / indeterminate /
+ * probableHAI / definiteHAI); these are summed into the combined point
+ * so a downstream cutoff step can restrict the reported numerator to a
+ * subset of bins without losing the underlying breakdown.
  */
 export function combineByDate(observations) {
   const groups = new Map();
@@ -40,7 +44,8 @@ export function combineByDate(observations) {
         date: observation.date,
         numerator: 0,
         denominator: 0,
-        bedDays: 0
+        bedDays: 0,
+        onsetBins: null
       });
     }
 
@@ -49,12 +54,59 @@ export function combineByDate(observations) {
     group.numerator += observation.numerator;
     group.denominator += observation.denominator;
     group.bedDays += observation.bedDays ?? 0;
+
+    if (observation.onsetBins) {
+      if (!group.onsetBins) {
+        group.onsetBins = {
+          community: 0,
+          indeterminate: 0,
+          probableHAI: 0,
+          definiteHAI: 0
+        };
+      }
+      group.onsetBins.community += observation.onsetBins.community || 0;
+      group.onsetBins.indeterminate +=
+        observation.onsetBins.indeterminate || 0;
+      group.onsetBins.probableHAI +=
+        observation.onsetBins.probableHAI || 0;
+      group.onsetBins.definiteHAI +=
+        observation.onsetBins.definiteHAI || 0;
+    }
   }
 
   return [...groups.values()].sort(
     (first, second) =>
       first.date.localeCompare(second.date)
   );
+}
+
+/**
+ * For respiratory-HAI series, rewrite each combined point's numerator
+ * so it counts only the bins allowed by the chosen cutoff. Non-
+ * respiratory series (no `onsetBins`) are returned unchanged.
+ *
+ * Cutoff values match HAI_CUTOFF_BINS in js/topics.js.
+ */
+export function applyHaiCutoff(points, cutoff) {
+  const binsByCutoff = {
+    "all": ["community", "indeterminate", "probableHAI", "definiteHAI"],
+    "excluding-community": ["indeterminate", "probableHAI", "definiteHAI"],
+    "probable-and-definite": ["probableHAI", "definiteHAI"],
+    "definite-only": ["definiteHAI"]
+  };
+
+  const bins = binsByCutoff[cutoff] || binsByCutoff["probable-and-definite"];
+
+  return points.map(point => {
+    if (!point.onsetBins) return point;
+
+    const numerator = bins.reduce(
+      (sum, key) => sum + (point.onsetBins[key] || 0),
+      0
+    );
+
+    return { ...point, numerator };
+  });
 }
 
 export function limitTimeWindow(points, numberOfWeeks) {
@@ -380,12 +432,20 @@ export function prepareAnalysis(
 
   const combined = combineByDate(filtered);
 
+  const withCutoff =
+    scenario.surveillance.surveillanceKind === "respiratory-hai"
+      ? applyHaiCutoff(
+          combined,
+          displayOptions.haiCutoff || "probable-and-definite"
+        )
+      : combined;
+
   const aggregation = Math.max(
     1,
     Number(displayOptions.aggregation) || 1
   );
 
-  const aggregated = aggregatePoints(combined, aggregation);
+  const aggregated = aggregatePoints(withCutoff, aggregation);
 
   const chartType = selectControlChart(
     displayOptions.spcType,

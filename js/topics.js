@@ -10,6 +10,15 @@
 //                        Suits mandatory bacteraemia reporting and CDI.
 //   screening-proportion Weekly positives among patients screened.
 //                        Suits CPE-style screening surveillance.
+//   respiratory-hai      Weekly detections classified by day-of-onset
+//                        into community / indeterminate / probable HAI /
+//                        definite HAI bins per the UKHSA / ECDC
+//                        healthcare-associated respiratory infection
+//                        definitions. Denominator is occupied bed-days.
+//                        Observations carry an `onsetBins` object as
+//                        well as the total `numerator`; the display-time
+//                        HAI cutoff selector decides which bins are
+//                        summed for the plotted metric.
 //
 // Rates are per rateMultiplier units of the denominator (so 10,000
 // bed-days for bacteraemia, and per 100 screened patients / percentage
@@ -119,8 +128,131 @@ export const SURVEILLANCE_TOPICS = {
     rateMultiplier: 10000,
     recommendedChart: "u",
     baselineRate: 0.0003
+  },
+
+  // -------------------------------------------------------------------
+  // Respiratory nosocomial infection topics (surveillance kind
+  // "respiratory-hai"). Observations carry a `numerator` (total weekly
+  // detections) alongside `onsetBins` broken down by day-of-onset
+  // relative to admission. The display-time cutoff selector chooses
+  // which bins are summed for the plotted metric:
+  //
+  //   all                    all onset bins
+  //   excluding-community    indeterminate + probable + definite
+  //   probable-and-definite  probable + definite (default; matches
+  //                          UK reportable HAI)
+  //   definite-only          definite only
+  //
+  // Baseline rates apply to the TOTAL of all bins (all detections). The
+  // seasonality helper in js/generator.js multiplies this base rate by
+  // an organism-specific seasonal factor. Bin proportions are held in
+  // `onsetBinWeights` and are perturbed by scenario templates.
+  // -------------------------------------------------------------------
+
+  COVID: {
+    code: "COVID",
+    surveillanceKind: "respiratory-hai",
+    organism: "SARS-CoV-2 (nosocomial classification)",
+    shortName: "SARS-CoV-2",
+    availableMeasures: ["count", "rate"],
+    defaultMeasure: "rate",
+    numeratorLabel: "Detections",
+    denominatorLabel: "Bed-days",
+    rateMultiplier: 10000,
+    recommendedChart: "u",
+    // Total detections (all bins) per occupied bed-day, before
+    // seasonal scaling. Set for a mid-sized trust to give roughly
+    // 25-40 total detections per week in mid-winter, tailing to
+    // 5-10 in high summer.
+    baselineRate: 0.0009,
+    seasonality: {
+      // Peak in early January (week 2), amplitude 0.7 -> factor 0.3 to 1.7.
+      amplitude: 0.7,
+      peakWeek: 2
+    },
+    onsetBinWeights: {
+      community: 0.55,
+      indeterminate: 0.20,
+      probableHAI: 0.15,
+      definiteHAI: 0.10
+    }
+  },
+
+  INFA: {
+    code: "INFA",
+    surveillanceKind: "respiratory-hai",
+    organism: "Influenza (nosocomial classification)",
+    shortName: "Influenza",
+    availableMeasures: ["count", "rate"],
+    defaultMeasure: "rate",
+    numeratorLabel: "Detections",
+    denominatorLabel: "Bed-days",
+    rateMultiplier: 10000,
+    recommendedChart: "u",
+    baselineRate: 0.0006,
+    seasonality: {
+      // Peak week 5 (early February), strong amplitude -> near-zero summer.
+      amplitude: 0.95,
+      peakWeek: 5
+    },
+    onsetBinWeights: {
+      community: 0.70,
+      indeterminate: 0.15,
+      probableHAI: 0.10,
+      definiteHAI: 0.05
+    }
+  },
+
+  RSV: {
+    code: "RSV",
+    surveillanceKind: "respiratory-hai",
+    organism: "RSV (nosocomial classification)",
+    shortName: "RSV",
+    availableMeasures: ["count", "rate"],
+    defaultMeasure: "rate",
+    numeratorLabel: "Detections",
+    denominatorLabel: "Bed-days",
+    rateMultiplier: 10000,
+    recommendedChart: "u",
+    baselineRate: 0.0004,
+    seasonality: {
+      // Peak week 51 (mid-December), strong amplitude.
+      amplitude: 0.95,
+      peakWeek: 51
+    },
+    onsetBinWeights: {
+      community: 0.75,
+      indeterminate: 0.13,
+      probableHAI: 0.08,
+      definiteHAI: 0.04
+    }
   }
 };
+
+/**
+ * Available HAI cutoff options for the respiratory-hai display selector.
+ * The value is the identifier stored in learnerState.display.haiCutoff;
+ * the label is what appears in the UI; days is the day-of-admission
+ * cutoff used for the label subtitle.
+ */
+export const HAI_CUTOFF_OPTIONS = [
+  { value: "all",                    label: "All detections (any onset day)",             days: 0 },
+  { value: "excluding-community",    label: "Excluding community onset (\u22653 days)",   days: 3 },
+  { value: "probable-and-definite",  label: "Probable + definite HAI (\u22658 days)",     days: 8 },
+  { value: "definite-only",          label: "Definite HAI only (\u226515 days)",          days: 15 }
+];
+
+/**
+ * Which onset bins are summed for each cutoff option.
+ */
+export const HAI_CUTOFF_BINS = {
+  "all":                   ["community", "indeterminate", "probableHAI", "definiteHAI"],
+  "excluding-community":   ["indeterminate", "probableHAI", "definiteHAI"],
+  "probable-and-definite": ["probableHAI", "definiteHAI"],
+  "definite-only":         ["definiteHAI"]
+};
+
+export const HAI_DEFAULT_CUTOFF = "probable-and-definite";
 
 /**
  * Convenience groupings for use by scenario templates when declaring the
@@ -137,5 +269,8 @@ export const TOPIC_GROUPS = {
   COMMON_BACTERAEMIA: ["CDI", "MSSA", "KLEB", "ECOLI"],
 
   // Screening-proportion topics.
-  SCREENING: ["CPE"]
+  SCREENING: ["CPE"],
+
+  // Respiratory nosocomial-classification topics.
+  RESPIRATORY: ["COVID", "INFA", "RSV"]
 };

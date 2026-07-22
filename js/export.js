@@ -290,6 +290,23 @@ function smoothingLabel(smoothing) {
   return `${value}-period moving mean`;
 }
 
+/**
+ * Human-readable label for the respiratory-hai onset cutoff option
+ * embedded in the learning record. Kept in export.js (not imported
+ * from topics.js) so the export module has no runtime dependency on
+ * topics; the four values are stable and short.
+ */
+function haiCutoffLabel(cutoff) {
+  const labels = {
+    "all": "All detections (any onset day)",
+    "excluding-community": "Excluding community onset (\u22653 days)",
+    "probable-and-definite": "Probable + definite HAI (\u22658 days)",
+    "definite-only": "Definite HAI only (\u226515 days)"
+  };
+
+  return labels[cutoff] || labels["probable-and-definite"];
+}
+
 function buildLearningRecordHtml({
   scenario,
   chartDataUri,
@@ -436,6 +453,11 @@ function buildLearningRecordHtml({
     <dt>Site / ward</dt><dd>${escapeHtml(displayOptions?.site || "all")} / ${escapeHtml(displayOptions?.ward || "all")}</dd>
     <dt>Smoothing</dt><dd>${escapeHtml(smoothingLabel(displayOptions?.smoothing))}</dd>
     <dt>Control chart</dt><dd>${escapeHtml(spcLabel || "None")}</dd>
+    ${
+      surveillance?.surveillanceKind === "respiratory-hai"
+        ? `<dt>HAI onset cutoff</dt><dd>${escapeHtml(haiCutoffLabel(displayOptions?.haiCutoff))}</dd>`
+        : ""
+    }
     <dt>Y-axis</dt><dd>${escapeHtml(yAxisTitle || "")}</dd>
     <dt>Denominator</dt><dd>${escapeHtml(denominatorLabel || "Not applicable")}</dd>
     <dt>Signals detected</dt><dd>${signals.length}</dd>

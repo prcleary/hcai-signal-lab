@@ -391,6 +391,17 @@ main {
   border-radius: 4px;
 }
 
+/* HAI-cutoff field is a sub-group inside the Display control-group. It
+   is toggled via the `hidden` attribute from app.js when the current
+   topic is not a respiratory-hai one, so no scenario-agnostic styling
+   is needed for the hidden state. */
+.hai-cutoff-field {
+  display: block;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px dashed #cfd8e3;
+}
+
 /* --- Chart panel -------------------------------------------------------- */
 
 .chart-panel {

@@ -294,6 +294,36 @@ function applyGamingNumeratorArtefact(
   return numerator;
 }
 
+/**
+ * ISO-ish week-of-year for the seasonal helper. Returned as an integer
+ * 0..52; leap-year drift is fine at this level (seasonality is smooth).
+ */
+function getWeekOfYear(date) {
+  const start = Date.UTC(date.getUTCFullYear(), 0, 1);
+  const diffDays = Math.floor(
+    (date.getTime() - start) / (24 * 3600 * 1000)
+  );
+  return Math.floor(diffDays / 7);
+}
+
+/**
+ * Multiplicative seasonal factor for respiratory-hai topics. Reads
+ * `topic.seasonality.{amplitude, peakWeek}` and returns a factor
+ * bounded below at 0.1 so summer troughs do not produce zero-rate
+ * weeks (which would give a completely flat trough on the chart).
+ */
+function getRespiratorySeasonality(topic, weekOfYear) {
+  const s = topic.seasonality;
+  if (!s) return 1;
+
+  const factor =
+    1 +
+    s.amplitude *
+      Math.cos(((weekOfYear - s.peakWeek) / 52) * Math.PI * 2);
+
+  return Math.max(0.1, factor);
+}
+
 function getScenarioMultiplier({
   template,
   weekIndex,
@@ -347,6 +377,185 @@ function getScenarioMultiplier({
   }
 }
 
+/**
+ * Respiratory-HAI observation generator. Produces a per-week record
+ * with a total `numerator` (all detections) and an `onsetBins`
+ * breakdown by day-of-onset relative to admission. Downstream code
+ * (statistics.js -> applyHaiCutoff) sums the appropriate bins based on
+ * the learner's display-time cutoff selection.
+ *
+ * Baseline rate is scaled by:
+ *   - topic seasonality (winter peak, summer trough)
+ *   - ward.risk
+ *   - the generic scenarioMultiplier (step, trend, single-extreme,
+ *     local-outbreak, seasonality-template, common-cause)
+ *
+ * Respiratory-specific templates then rescale individual bins:
+ *   respiratory-community-surge      community bin surges immediately;
+ *                                    HAI bins ramp up over 1-3 weeks.
+ *   respiratory-ward-cluster         definite-HAI bin surges on the
+ *                                    affected ward only.
+ *   respiratory-definition-cutoff    community and indeterminate bins
+ *                                    are dampened post-change (mimics
+ *                                    a tightening of what counts as
+ *                                    reportable HAI).
+ *
+ * Reporting-artefact and denominator-change apply as they do for
+ * count-per-bed-days topics; ward-closure collapses the denominator on
+ * the affected ward.
+ */
+function generateRespiratoryObservation({
+  random,
+  topic,
+  template,
+  ward,
+  wardBedDays,
+  weekIndex,
+  totalWeeks,
+  changePoint,
+  afterChange,
+  date,
+  affectedWard,
+  scenarioMultiplier
+}) {
+  let denominator = wardBedDays;
+
+  if (template.id === "denominator-change" && afterChange) {
+    denominator = Math.max(1, Math.round(denominator * 0.55));
+  }
+
+  if (
+    template.id === "ward-closure" &&
+    afterChange &&
+    ward.name === affectedWard
+  ) {
+    denominator = Math.max(1, Math.round(denominator * 0.05));
+  }
+
+  const weekOfYear = getWeekOfYear(date);
+  const seasonalFactor = getRespiratorySeasonality(topic, weekOfYear);
+
+  const baseRate =
+    topic.baselineRate *
+    seasonalFactor *
+    ward.risk *
+    scenarioMultiplier;
+
+  const totalExpected = baseRate * denominator;
+  const weights = topic.onsetBinWeights;
+
+  const binMultipliers = {
+    community: 1,
+    indeterminate: 1,
+    probableHAI: 1,
+    definiteHAI: 1
+  };
+
+  if (template.id === "respiratory-community-surge" && afterChange) {
+    // Community wave hits admissions immediately; HAI bins ramp up as
+    // admitted patients incubate and staff-to-patient transmission
+    // steps up. The lag is what distinguishes this template from a
+    // pure nosocomial cluster.
+    const weeksSinceChange = weekIndex - changePoint;
+    binMultipliers.community = 3.0;
+    binMultipliers.indeterminate = weeksSinceChange >= 1 ? 1.8 : 1.0;
+    binMultipliers.probableHAI = weeksSinceChange >= 2 ? 1.6 : 1.0;
+    binMultipliers.definiteHAI = weeksSinceChange >= 3 ? 1.4 : 1.0;
+  }
+
+  if (
+    template.id === "respiratory-ward-cluster" &&
+    afterChange &&
+    weekIndex <= changePoint + 6 &&
+    ward.name === affectedWard
+  ) {
+    // Ward-level nosocomial cluster: predominantly definite HAI, some
+    // probable HAI, community and indeterminate untouched.
+    binMultipliers.definiteHAI = 12;
+    binMultipliers.probableHAI = 3;
+  }
+
+  if (template.id === "respiratory-definition-cutoff" && afterChange) {
+    // Tightened case definition: community and indeterminate bins no
+    // longer count as HAI. Probable and definite are unchanged. Total
+    // detections appear to fall; a learner switching cutoff to
+    // "Definite HAI only" sees no change.
+    binMultipliers.community = 0.35;
+    binMultipliers.indeterminate = 0.35;
+  }
+
+  const rawBins = {
+    community: randomPoisson(
+      random,
+      totalExpected * weights.community * binMultipliers.community
+    ),
+    indeterminate: randomPoisson(
+      random,
+      totalExpected * weights.indeterminate * binMultipliers.indeterminate
+    ),
+    probableHAI: randomPoisson(
+      random,
+      totalExpected * weights.probableHAI * binMultipliers.probableHAI
+    ),
+    definiteHAI: randomPoisson(
+      random,
+      totalExpected * weights.definiteHAI * binMultipliers.definiteHAI
+    )
+  };
+
+  const rawTotal =
+    rawBins.community +
+    rawBins.indeterminate +
+    rawBins.probableHAI +
+    rawBins.definiteHAI;
+
+  // Apply reporting artefact to the total, then distribute the scaled
+  // total back across bins proportionally so composition is preserved.
+  const afterReporting = applyReportingArtefact(
+    rawTotal,
+    template,
+    weekIndex,
+    totalWeeks
+  );
+
+  let onsetBins;
+
+  if (rawTotal === 0) {
+    onsetBins = {
+      community: 0,
+      indeterminate: 0,
+      probableHAI: 0,
+      definiteHAI: 0
+    };
+  } else if (afterReporting === rawTotal) {
+    onsetBins = { ...rawBins };
+  } else {
+    const ratio = afterReporting / rawTotal;
+    onsetBins = {
+      community: Math.round(rawBins.community * ratio),
+      indeterminate: Math.round(rawBins.indeterminate * ratio),
+      probableHAI: Math.round(rawBins.probableHAI * ratio),
+      definiteHAI: Math.round(rawBins.definiteHAI * ratio)
+    };
+  }
+
+  const numerator =
+    onsetBins.community +
+    onsetBins.indeterminate +
+    onsetBins.probableHAI +
+    onsetBins.definiteHAI;
+
+  return {
+    date: formatDate(date),
+    site: ward.site,
+    ward: ward.name,
+    numerator,
+    denominator,
+    bedDays: denominator,
+    onsetBins
+  };
+}
+
 function generateWeeklyObservation({
   random,
   topic,
@@ -380,6 +589,23 @@ function generateWeeklyObservation({
 
   const afterChange =
     changePoint != null && weekIndex >= changePoint;
+
+  if (topic.surveillanceKind === "respiratory-hai") {
+    return generateRespiratoryObservation({
+      random,
+      topic,
+      template,
+      ward,
+      wardBedDays,
+      weekIndex,
+      totalWeeks,
+      changePoint,
+      afterChange,
+      date,
+      affectedWard,
+      scenarioMultiplier
+    });
+  }
 
   if (topic.code === "CPE") {
     let screened = randomInteger(random, 15, 55);
@@ -562,7 +788,8 @@ export function generateScenario(seed = generateSeed(), options = {}) {
       changePointDate,
       affectedWard:
         template.id === "local-outbreak" ||
-        template.id === "ward-closure"
+        template.id === "ward-closure" ||
+        template.id === "respiratory-ward-cluster"
           ? affectedWard
           : null,
       explanation: createExplanation(template, {
@@ -583,7 +810,11 @@ export function generateScenario(seed = generateSeed(), options = {}) {
         spcType: "auto",
         showTwoSd: true,
         showThreeSd: true,
-        showSignals: true
+        showSignals: true,
+        haiCutoff:
+          topic.surveillanceKind === "respiratory-hai"
+            ? "probable-and-definite"
+            : null
       },
       investigate: "",
       notes: "",

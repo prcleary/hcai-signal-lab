@@ -206,6 +206,50 @@ export const INVESTIGATION_TIPS = {
       falseAlarm:
         "Attributing a trust-level drop in cases to a real reduction when a whole ward is out of service. Denominator context prevents this every time."
     };
+  },
+
+  // --- Respiratory-HAI templates ------------------------------------
+
+  "respiratory-community-surge": {
+    pattern:
+      "Total detections rise sharply at the change point. When the cutoff is set to \u201cAll detections\u201d the surge dominates; switching to \u201cProbable + definite HAI\u201d shows a smaller and slightly-lagged rise as community-acquired admissions incubate on the wards.",
+    verify:
+      "Switch the HAI cutoff selector between \u201cAll detections\u201d, \u201cExcluding community onset\u201d and \u201cDefinite HAI only\u201d. If the surge is present in \u201cAll detections\u201d but attenuated in \u201cDefinite HAI only\u201d, the driver is community pressure with hospital spill-over rather than in-hospital transmission.",
+    differential:
+      "A pure nosocomial cluster would show up mainly in the probable and definite HAI bins with little community-onset change. A definition-cutoff artefact would show as a step-change in totals but no change in the underlying bin distribution.",
+    action:
+      "Coordinate with public-health and community-testing colleagues; response is triaged case-by-case rather than as an in-hospital outbreak. Reinforce admission testing, isolation and staff sickness policies but do not implement a whole-trust IPC response on the strength of community spill-over.",
+    falseAlarm:
+      "Reading a large \u201cAll detections\u201d peak as evidence of failing hospital IPC when it is really the community wave arriving in hospital. The bin breakdown is the diagnostic tool."
+  },
+
+  "respiratory-ward-cluster": scenario => {
+    const affected =
+      scenario.groundTruth?.affectedWard || "the affected ward";
+
+    return {
+      pattern: `At trust level the definite-HAI signal is diluted across many wards. Filter to ${affected} and set the cutoff to \u201cDefinite HAI only\u201d to see the cluster clearly.`,
+      verify: `Switch the ward filter through each ward with the cutoff at \u201cDefinite HAI only\u201d. The cluster concentrates on ${affected}. Then switch to \u201cAll detections\u201d \u2014 the ward is no longer distinctive because community-onset cases dilute it.`,
+      differential:
+        "A community surge would show similar rises in the community-onset bin across all wards. A definition-cutoff artefact would be trust-wide, not ward-specific.",
+      action:
+        "Ward-level nosocomial outbreak response: environmental audit, staff cohort review, source and contact tracing, admission/transfer restriction as required. Definite-HAI clustering on a single ward is a strong nosocomial signal.",
+      falseAlarm:
+        "Ruling out a nosocomial cluster from the trust-wide \u201cAll detections\u201d view. Community-onset cases will always dominate; the definite-HAI bins are where the nosocomial signal lives."
+    };
+  },
+
+  "respiratory-definition-cutoff": {
+    pattern:
+      "Total detections (\u201cAll detections\u201d cutoff) step down at the change point. Restricting to \u201cDefinite HAI only\u201d shows no change; the probable + definite bins are unchanged. The apparent fall is entirely in the community and indeterminate bins.",
+    verify:
+      "Cycle the HAI cutoff selector through all four options. A drop that vanishes as you tighten the cutoff \u2014 particularly one that disappears completely at \u201cDefinite HAI only\u201d \u2014 is diagnostic of a definition change rather than a change in transmission.",
+    differential:
+      "A real reduction in transmission would also reduce the probable and definite bins. A community wave receding would reduce community-onset detections but usually with a lag in the HAI bins too, not a clean step.",
+    action:
+      "Annotate the chart at the definition-change point. Report both the pre- and post-change definitions and the trend under each. Do not claim an IPC improvement from a definition-driven step-down.",
+    falseAlarm:
+      "Reporting a definition-driven step-down as an intervention success \u2014 the classic surveillance-behaviour artefact when performance indicators change definition without a methodological footnote."
   }
 };
 

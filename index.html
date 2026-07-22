@@ -101,6 +101,17 @@
             <option value="4">Four-weekly</option>
             <option value="13">Quarterly</option>
           </select>
+
+          <div id="haiCutoffField" class="hai-cutoff-field" hidden>
+            <label for="haiCutoffSelect">HAI onset cutoff</label>
+            <select id="haiCutoffSelect">
+              <option value="all">All detections (any onset day)</option>
+              <option value="excluding-community">Excluding community onset (&#8805;3 days)</option>
+              <option value="probable-and-definite" selected>Probable + definite HAI (&#8805;8 days)</option>
+              <option value="definite-only">Definite HAI only (&#8805;15 days)</option>
+            </select>
+            <p class="information-box">Restricts the plotted numerator to detections in the selected onset-day bins. Applies only to nosocomial respiratory topics.</p>
+          </div>
         </section>
 
         <section class="control-group">

@@ -106,6 +106,8 @@ function collectElements() {
     "showTwoSd",
     "showThreeSd",
     "showSignals",
+    "haiCutoffSelect",
+    "haiCutoffField",
 
     "mainChart",
     "chartSubtitle",
@@ -146,7 +148,8 @@ function addEventListeners() {
     "spcSelect",
     "showTwoSd",
     "showThreeSd",
-    "showSignals"
+    "showSignals",
+    "haiCutoffSelect"
   ];
 
   for (const id of displayControls) {
@@ -368,6 +371,8 @@ function applyScenarioStateToControls() {
   elements.showSignals.checked =
     display.showSignals;
 
+  updateHaiCutoffControl(display.haiCutoff);
+
   elements.investigateSelect.value =
     scenario.learnerState.investigate || "";
 
@@ -474,10 +479,34 @@ function updateStateFromControls() {
     showThreeSd:
       elements.showThreeSd.checked,
     showSignals:
-      elements.showSignals.checked
+      elements.showSignals.checked,
+    haiCutoff:
+      scenario.surveillance.surveillanceKind === "respiratory-hai"
+        ? elements.haiCutoffSelect.value
+        : null
   };
 
   saveCurrentScenario(scenario);
+}
+
+/**
+ * The HAI cutoff selector applies only to respiratory-hai topics.
+ * Hide the containing field entirely for other topics; when shown,
+ * seed it from the stored display state (falling back to the default
+ * cutoff when the stored scenario predates this feature).
+ */
+function updateHaiCutoffControl(storedCutoff) {
+  if (!elements.haiCutoffField || !elements.haiCutoffSelect) return;
+
+  const isRespiratory =
+    scenario.surveillance.surveillanceKind === "respiratory-hai";
+
+  elements.haiCutoffField.hidden = !isRespiratory;
+
+  if (isRespiratory) {
+    elements.haiCutoffSelect.value =
+      storedCutoff || "probable-and-definite";
+  }
 }
 
 function getDisplayOptions() {
@@ -584,19 +613,46 @@ function updateSpcCaveat(chartType) {
 
 function getSpcLabel(chartType, surveillance) {
   if (chartType === "none") {
-    return "No control limits";
+    return withHaiCutoffSuffix("No control limits", surveillance);
   }
 
-  const label = `${chartType}-chart`;
+  const base = `${chartType}-chart`;
 
+  const label =
+    surveillance && surveillance.recommendedChart === chartType
+      ? `${base} \u2014 recommended for this topic`
+      : base;
+
+  return withHaiCutoffSuffix(label, surveillance);
+}
+
+/**
+ * For respiratory-hai topics, append the currently selected onset
+ * cutoff to the SPC label so learners immediately see which
+ * definition of "HAI" the chart is plotting.
+ */
+function withHaiCutoffSuffix(label, surveillance) {
   if (
-    surveillance &&
-    surveillance.recommendedChart === chartType
+    !surveillance ||
+    surveillance.surveillanceKind !== "respiratory-hai"
   ) {
-    return `${label} \u2014 recommended for this topic`;
+    return label;
   }
 
-  return label;
+  const cutoff =
+    scenario?.learnerState?.display?.haiCutoff ||
+    "probable-and-definite";
+
+  const cutoffLabels = {
+    "all": "all detections",
+    "excluding-community": "\u22653 days onset",
+    "probable-and-definite": "\u22658 days onset",
+    "definite-only": "\u226515 days onset"
+  };
+
+  const suffix = cutoffLabels[cutoff] || cutoff;
+
+  return `${label} \u00b7 ${suffix}`;
 }
 
 function updateScenarioHeader() {
