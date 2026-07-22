@@ -113,22 +113,23 @@
             <label for="haiCutoffSelect">HAI onset cutoff</label>
             <select id="haiCutoffSelect">
               <option value="all">All detections (any onset day)</option>
-              <option value="excluding-community">Excluding community onset (&#8805;3 days)</option>
-              <option value="probable-and-definite" selected>Probable + definite HAI (&#8805;8 days)</option>
-              <option value="definite-only">Definite HAI only (&#8805;15 days)</option>
+              <option value="excluding-community">Any hospital onset (HOIHA + HOPHA + HODHA, &#8805;3 days)</option>
+              <option value="probable-and-definite" selected>Probable + definite HAI (HOPHA + HODHA, &#8805;8 days)</option>
+              <option value="definite-only">Definite HAI only (HODHA, &#8805;15 days)</option>
             </select>
-            <p class="information-box">Restricts the plotted numerator to detections in the selected onset-day bins. Applies only to nosocomial respiratory topics.</p>
+            <p class="information-box">Restricts the plotted numerator to detections in the selected onset-day bins per the NHS England healthcare-associated COVID-19 classification (Community / HOIHA / HOPHA / HODHA). Applies to nosocomial respiratory topics.</p>
           </div>
 
-          <div id="cdiClassificationField" class="cdi-classification-field" hidden>
-            <label for="cdiClassificationSelect">CDI apportionment</label>
-            <select id="cdiClassificationSelect">
-              <option value="all">All CDI cases</option>
-              <option value="trust-apportioned" selected>Trust-apportioned (HOHA + COHA)</option>
-              <option value="hospital-onset">Hospital onset only (HOHA)</option>
-              <option value="community-onset">Community onset (COIA + COCA)</option>
+          <div id="apportionmentField" class="apportionment-field" hidden>
+            <label for="apportionmentSelect">Onset apportionment</label>
+            <select id="apportionmentSelect">
+              <option value="all">All cases</option>
+              <option value="trust-apportioned" selected>Total healthcare-associated (HOHA + COHA)</option>
+              <option value="hospital-onset">Hospital onset (HOHA)</option>
+              <option value="community-onset-hcai">Community onset, healthcare associated (COHA)</option>
+              <option value="community-onset-community">Community onset, community associated (COCA)</option>
             </select>
-            <p class="information-box">Filters the plotted numerator by the NHS mandatory C. difficile apportionment categories (hospital / community onset, healthcare / community associated). Applies only to the CDI topic.</p>
+            <p class="information-box">Filters the plotted numerator by the NHS / UKHSA mandatory-surveillance onset categories (HOHA / COHA / COCA). Applies to CDI and every mandatory bacteraemia topic (MRSA, MSSA, E. coli, Klebsiella, P. aeruginosa).</p>
           </div>
         </section>
 

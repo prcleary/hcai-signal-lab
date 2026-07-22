@@ -1044,7 +1044,7 @@ function generateWeeklyObservation({
     random
   );
 
-  const cdiBins = partitionCdiBins({
+  const apportionmentBins = partitionApportionmentBins({
     random,
     total: numerator,
     topic,
@@ -1060,14 +1060,17 @@ function generateWeeklyObservation({
     numerator,
     denominator,
     bedDays: denominator,
-    cdiBins
+    apportionmentBins
   };
 }
 
 /**
- * Partition a CDI weekly numerator into the four NHS apportionment
- * bins (HOHA, COHA, COIA, COCA) using a multinomial draw with weights
- * from `topic.cdiClassificationWeights`.
+ * Partition a weekly numerator into the NHS onset-apportionment bins
+ * (HOHA, COHA, COCA) using a multinomial draw with weights from
+ * `topic.apportionmentWeights`. Applies to CDI and every mandatory
+ * bacteraemia topic (MRSA, MSSA, E. coli, Klebsiella, P. aeruginosa),
+ * all of which share the same three-category framework in current NHS /
+ * UKHSA mandatory surveillance.
  *
  * Templates whose mechanism concentrates in specific bins tilt the
  * weights before the draw:
@@ -1078,16 +1081,16 @@ function generateWeeklyObservation({
  *
  *   care-bundle-intervention (after change)
  *       Interventions that reduce hospital transmission act on the
- *       trust-attributable cohort. The template already reduces the
- *       total numerator; tilting weights toward COIA/COCA localises
- *       the drop in the HOHA + COHA cohort, so a learner filtering
- *       to "Trust-apportioned" sees a sharper reduction.
+ *       healthcare-associated cohort. The template already reduces the
+ *       total numerator; tilting weights toward COCA localises the
+ *       drop in the HOHA + COHA cohort, so a learner filtering to
+ *       "Total healthcare-associated" sees a sharper reduction.
  *
- * All other CDI templates use the topic's baseline weights unchanged.
- * Returns null for non-CDI topics so downstream code can treat the
- * field as optional.
+ * All other templates use the topic's baseline weights unchanged.
+ * Returns null for topics without apportionment metadata so downstream
+ * code can treat the field as optional.
  */
-function partitionCdiBins({
+function partitionApportionmentBins({
   random,
   total,
   topic,
@@ -1095,12 +1098,12 @@ function partitionCdiBins({
   afterChange,
   isAffectedWard
 }) {
-  if (!topic.cdiClassifications || !topic.cdiClassificationWeights) {
+  if (!topic.apportionmentCategories || !topic.apportionmentWeights) {
     return null;
   }
 
-  const codes = topic.cdiClassifications.map(entry => entry.code);
-  const weights = { ...topic.cdiClassificationWeights };
+  const codes = topic.apportionmentCategories.map(entry => entry.code);
+  const weights = { ...topic.apportionmentWeights };
 
   if (
     template.id === "local-outbreak" &&
@@ -1109,13 +1112,11 @@ function partitionCdiBins({
   ) {
     weights.HOHA = 0.75;
     weights.COHA = 0.15;
-    weights.COIA = 0.04;
-    weights.COCA = 0.06;
+    weights.COCA = 0.10;
   } else if (template.id === "care-bundle-intervention" && afterChange) {
     weights.HOHA = 0.20;
     weights.COHA = 0.15;
-    weights.COIA = 0.20;
-    weights.COCA = 0.45;
+    weights.COCA = 0.65;
   }
 
   const bins = {};
@@ -1264,8 +1265,8 @@ export function generateScenario(seed = generateSeed(), options = {}) {
           topic.surveillanceKind === "respiratory-hai"
             ? "probable-and-definite"
             : null,
-        cdiClassification:
-          topic.code === "CDI" ? "trust-apportioned" : null
+        apportionment:
+          topic.apportionmentCategories ? "trust-apportioned" : null
       },
       investigate: "",
       notes: "",

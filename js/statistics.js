@@ -46,7 +46,7 @@ export function combineByDate(observations) {
         denominator: 0,
         bedDays: 0,
         onsetBins: null,
-        cdiBins: null,
+        apportionmentBins: null,
         numeratorBySubtype: null
       });
     }
@@ -75,14 +75,13 @@ export function combineByDate(observations) {
         observation.onsetBins.definiteHAI || 0;
     }
 
-    if (observation.cdiBins) {
-      if (!group.cdiBins) {
-        group.cdiBins = { HOHA: 0, COHA: 0, COIA: 0, COCA: 0 };
+    if (observation.apportionmentBins) {
+      if (!group.apportionmentBins) {
+        group.apportionmentBins = { HOHA: 0, COHA: 0, COCA: 0 };
       }
-      group.cdiBins.HOHA += observation.cdiBins.HOHA || 0;
-      group.cdiBins.COHA += observation.cdiBins.COHA || 0;
-      group.cdiBins.COIA += observation.cdiBins.COIA || 0;
-      group.cdiBins.COCA += observation.cdiBins.COCA || 0;
+      group.apportionmentBins.HOHA += observation.apportionmentBins.HOHA || 0;
+      group.apportionmentBins.COHA += observation.apportionmentBins.COHA || 0;
+      group.apportionmentBins.COCA += observation.apportionmentBins.COCA || 0;
     }
 
     if (observation.numeratorBySubtype) {
@@ -134,20 +133,22 @@ export function applyHaiCutoff(points, cutoff) {
 }
 
 /**
- * For CDI series, rewrite each combined point's numerator so it counts
- * only the apportionment bins allowed by the chosen classification
- * filter (see NHS mandatory-surveillance categorisation). Points
- * without a `cdiBins` breakdown -- e.g. non-CDI series, or CDI
- * scenarios generated before this feature -- are returned unchanged.
+ * For any topic carrying an `apportionmentBins` breakdown (CDI plus
+ * every mandatory bacteraemia topic), rewrite each combined point's
+ * numerator so it counts only the apportionment bins allowed by the
+ * chosen classification filter -- per the NHS / UKHSA mandatory-
+ * surveillance categorisation (HOHA / COHA / COCA). Points without an
+ * `apportionmentBins` object are returned unchanged.
  *
- * Classification values match CDI_CLASSIFICATION_BINS in js/topics.js.
+ * Classification values match APPORTIONMENT_BINS in js/topics.js.
  */
-export function applyCdiClassification(points, classification) {
+export function applyApportionmentClassification(points, classification) {
   const binsByClassification = {
-    "all":               ["HOHA", "COHA", "COIA", "COCA"],
-    "trust-apportioned": ["HOHA", "COHA"],
-    "hospital-onset":    ["HOHA"],
-    "community-onset":   ["COIA", "COCA"]
+    "all":                       ["HOHA", "COHA", "COCA"],
+    "trust-apportioned":         ["HOHA", "COHA"],
+    "hospital-onset":            ["HOHA"],
+    "community-onset-hcai":      ["COHA"],
+    "community-onset-community": ["COCA"]
   };
 
   const bins =
@@ -155,10 +156,10 @@ export function applyCdiClassification(points, classification) {
     binsByClassification["trust-apportioned"];
 
   return points.map(point => {
-    if (!point.cdiBins) return point;
+    if (!point.apportionmentBins) return point;
 
     const numerator = bins.reduce(
-      (sum, key) => sum + (point.cdiBins[key] || 0),
+      (sum, key) => sum + (point.apportionmentBins[key] || 0),
       0
     );
 
@@ -545,10 +546,10 @@ export function prepareAnalysis(
       : withSubtype;
 
   const withClassification =
-    scenario.surveillance.code === "CDI"
-      ? applyCdiClassification(
+    scenario.surveillance.apportionmentCategories
+      ? applyApportionmentClassification(
           withCutoff,
-          displayOptions.cdiClassification || "trust-apportioned"
+          displayOptions.apportionment || "trust-apportioned"
         )
       : withCutoff;
 

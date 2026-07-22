@@ -53,39 +53,42 @@ export const SURVEILLANCE_TOPICS = {
     rateMultiplier: 10000,
     recommendedChart: "u",
     baselineRate: 0.0007,
-    // NHS / UKHSA CDI apportionment categories, per the mandatory
-    // surveillance framework in force since April 2019 (definitions
-    // reaffirmed in the April 2023 revision):
+    // NHS / UKHSA mandatory-surveillance apportionment categories,
+    // shared with MRSA, MSSA, E. coli, Klebsiella spp. and
+    // P. aeruginosa bacteraemia. Definitions per the UKHSA data
+    // dashboard metrics documentation and the mandatory HCAI
+    // surveillance protocol:
     //
-    //   HOHA  Hospital Onset, Healthcare Associated
-    //         Specimen taken on day 3 or later of the current trust
-    //         admission (day of admission = day 1).
-    //   COHA  Community Onset, Healthcare Associated
-    //         Specimen taken on day 1 or 2 of the current admission,
-    //         with a discharge from the same trust in the previous
-    //         28 days.
-    //   COIA  Community Onset, Indeterminate Association
-    //         Specimen taken outside hospital or on day 1/2 with a
-    //         discharge from any trust 29-84 days prior.
-    //   COCA  Community Onset, Community Associated
-    //         No admission to any trust in the previous 12 weeks.
+    //   HOHA  Hospital Onset, Healthcare Associated.
+    //         Specimen date the same or more than 3 days after the
+    //         current admission date (day of admission = day 1).
+    //   COHA  Community Onset, Healthcare Associated.
+    //         Not HOHA, and the patient was most recently discharged
+    //         from the same reporting trust in the 28 days prior to
+    //         the specimen date (day 1 = specimen date).
+    //   COCA  Community Onset, Community Associated.
+    //         Not HOHA and no discharge from the same reporting
+    //         organisation in the 28 days prior to the specimen date.
     //
-    // Trust-apportioned cases (used for the mandatory objective) are
-    // HOHA + COHA. Weights reflect broadly typical UK acute-trust
-    // distributions; scenario templates may tilt them (e.g. an
-    // outbreak amplifies HOHA, a care-bundle intervention reduces
-    // HOHA + COHA).
-    cdiClassifications: [
+    // Total healthcare-associated (used for the NHS mandatory
+    // trust-level objective) = HOHA + COHA (still often referred to
+    // colloquially as "trust-apportioned"). Two further administrative
+    // categories (unknown / no information) exist in UKHSA data but
+    // are not modelled here.
+    //
+    // Baseline weights below reflect broadly typical UK acute-trust
+    // distributions per UKHSA annual data. Scenario templates may tilt
+    // them (e.g. an outbreak amplifies HOHA; a care-bundle intervention
+    // reduces HOHA + COHA share).
+    apportionmentCategories: [
       { code: "HOHA", label: "Hospital onset, healthcare associated" },
       { code: "COHA", label: "Community onset, healthcare associated" },
-      { code: "COIA", label: "Community onset, indeterminate association" },
       { code: "COCA", label: "Community onset, community associated" }
     ],
-    cdiClassificationWeights: {
-      HOHA: 0.35,
-      COHA: 0.20,
-      COIA: 0.15,
-      COCA: 0.30
+    apportionmentWeights: {
+      HOHA: 0.30,
+      COHA: 0.25,
+      COCA: 0.45
     }
   },
 
@@ -100,7 +103,21 @@ export const SURVEILLANCE_TOPICS = {
     denominatorLabel: "Bed-days",
     rateMultiplier: 10000,
     recommendedChart: "c",
-    baselineRate: 0.00005
+    baselineRate: 0.00005,
+    // Same NHS onset apportionment framework as CDI (see the CDI
+    // header comment). UKHSA reports MRSA bacteraemia by these three
+    // onset types. Baseline weights roughly reflect the ~30 %
+    // hospital-onset share seen in recent UKHSA annual data.
+    apportionmentCategories: [
+      { code: "HOHA", label: "Hospital onset, healthcare associated" },
+      { code: "COHA", label: "Community onset, healthcare associated" },
+      { code: "COCA", label: "Community onset, community associated" }
+    ],
+    apportionmentWeights: {
+      HOHA: 0.30,
+      COHA: 0.25,
+      COCA: 0.45
+    }
   },
 
   MSSA: {
@@ -114,7 +131,17 @@ export const SURVEILLANCE_TOPICS = {
     denominatorLabel: "Bed-days",
     rateMultiplier: 10000,
     recommendedChart: "u",
-    baselineRate: 0.00020
+    baselineRate: 0.00020,
+    apportionmentCategories: [
+      { code: "HOHA", label: "Hospital onset, healthcare associated" },
+      { code: "COHA", label: "Community onset, healthcare associated" },
+      { code: "COCA", label: "Community onset, community associated" }
+    ],
+    apportionmentWeights: {
+      HOHA: 0.30,
+      COHA: 0.25,
+      COCA: 0.45
+    }
   },
 
   KLEB: {
@@ -128,7 +155,17 @@ export const SURVEILLANCE_TOPICS = {
     denominatorLabel: "Bed-days",
     rateMultiplier: 10000,
     recommendedChart: "u",
-    baselineRate: 0.00015
+    baselineRate: 0.00015,
+    apportionmentCategories: [
+      { code: "HOHA", label: "Hospital onset, healthcare associated" },
+      { code: "COHA", label: "Community onset, healthcare associated" },
+      { code: "COCA", label: "Community onset, community associated" }
+    ],
+    apportionmentWeights: {
+      HOHA: 0.30,
+      COHA: 0.25,
+      COCA: 0.45
+    }
   },
 
   PSAER: {
@@ -145,7 +182,19 @@ export const SURVEILLANCE_TOPICS = {
     // difference to the limits; a c-chart matches the c-chart used for
     // MRSA and reads as "count with constant area of opportunity".
     recommendedChart: "c",
-    baselineRate: 0.00008
+    baselineRate: 0.00008,
+    // P. aeruginosa bacteraemia is more heavily hospital-onset than
+    // the other mandatory bacteraemia organisms.
+    apportionmentCategories: [
+      { code: "HOHA", label: "Hospital onset, healthcare associated" },
+      { code: "COHA", label: "Community onset, healthcare associated" },
+      { code: "COCA", label: "Community onset, community associated" }
+    ],
+    apportionmentWeights: {
+      HOHA: 0.40,
+      COHA: 0.20,
+      COCA: 0.40
+    }
   },
 
   CPE: {
@@ -192,21 +241,52 @@ export const SURVEILLANCE_TOPICS = {
     denominatorLabel: "Bed-days",
     rateMultiplier: 10000,
     recommendedChart: "u",
-    baselineRate: 0.0003
+    baselineRate: 0.0003,
+    // E. coli bacteraemia is predominantly community-onset in the
+    // UKHSA mandatory data.
+    apportionmentCategories: [
+      { code: "HOHA", label: "Hospital onset, healthcare associated" },
+      { code: "COHA", label: "Community onset, healthcare associated" },
+      { code: "COCA", label: "Community onset, community associated" }
+    ],
+    apportionmentWeights: {
+      HOHA: 0.20,
+      COHA: 0.20,
+      COCA: 0.60
+    }
   },
 
   // -------------------------------------------------------------------
   // Respiratory nosocomial infection topics (surveillance kind
   // "respiratory-hai"). Observations carry a `numerator` (total weekly
   // detections) alongside `onsetBins` broken down by day-of-onset
-  // relative to admission. The display-time cutoff selector chooses
-  // which bins are summed for the plotted metric:
+  // relative to admission. The bin cutoffs match the NHS England
+  // healthcare-associated COVID-19 classification (Aug 2020 letter,
+  // updated Oct 2020, still in use for nosocomial respiratory-virus
+  // surveillance):
   //
-  //   all                    all onset bins
-  //   excluding-community    indeterminate + probable + definite
-  //   probable-and-definite  probable + definite (default; matches
-  //                          UK reportable HAI)
-  //   definite-only          definite only
+  //   community         Community-Onset (CO): first positive on day 1
+  //                     or day 2 of admission -- treated as likely
+  //                     community-acquired.
+  //   indeterminate     Hospital-Onset Indeterminate Healthcare
+  //                     Associated (HOIHA): first positive on day 3-7.
+  //   probableHAI       Hospital-Onset Probable Healthcare Associated
+  //                     (HOPHA): first positive on day 8-14.
+  //   definiteHAI       Hospital-Onset Definite Healthcare Associated
+  //                     (HODHA): first positive on day 15 or later.
+  //
+  // The display-time cutoff selector chooses which bins are summed for
+  // the plotted metric:
+  //
+  //   all                    all onset bins (community + HOIHA + HOPHA + HODHA)
+  //   excluding-community    HOIHA + HOPHA + HODHA (any hospital onset)
+  //   probable-and-definite  HOPHA + HODHA (default; the cohort most
+  //                          NHS trusts report as "healthcare-associated")
+  //   definite-only          HODHA only
+  //
+  // The framework was defined by NHS England for SARS-CoV-2 and is
+  // applied here to influenza and RSV as an analogous local convention
+  // -- these are not UKHSA-defined categories for those organisms.
   //
   // Baseline rates apply to the TOTAL of all bins (all detections). The
   // seasonality helper in js/generator.js multiplies this base rate by
@@ -412,9 +492,9 @@ export const SURVEILLANCE_TOPICS = {
  */
 export const HAI_CUTOFF_OPTIONS = [
   { value: "all",                    label: "All detections (any onset day)",             days: 0 },
-  { value: "excluding-community",    label: "Excluding community onset (\u22653 days)",   days: 3 },
-  { value: "probable-and-definite",  label: "Probable + definite HAI (\u22658 days)",     days: 8 },
-  { value: "definite-only",          label: "Definite HAI only (\u226515 days)",          days: 15 }
+  { value: "excluding-community",    label: "Any hospital onset (HOIHA + HOPHA + HODHA, \u22653 days)", days: 3 },
+  { value: "probable-and-definite",  label: "Probable + definite HAI (HOPHA + HODHA, \u22658 days)",   days: 8 },
+  { value: "definite-only",          label: "Definite HAI only (HODHA, \u226515 days)",   days: 15 }
 ];
 
 /**
@@ -430,31 +510,42 @@ export const HAI_CUTOFF_BINS = {
 export const HAI_DEFAULT_CUTOFF = "probable-and-definite";
 
 /**
- * Display-time filter options for the CDI apportionment selector.
- * Mirrors the NHS mandatory-surveillance categorisation:
+ * Display-time filter options for the onset-apportionment selector,
+ * available on any topic with `apportionmentCategories` (CDI plus every
+ * mandatory bacteraemia topic). Mirrors the NHS / UKHSA mandatory-
+ * surveillance categorisation:
  *
- *   all                  Every CDI case regardless of onset / origin.
- *   trust-apportioned    HOHA + COHA -- the cohort attributed to the
- *                        acute trust in the mandatory objective.
- *   hospital-onset       HOHA only -- specimen taken on day 3 or later.
- *   community-onset      COIA + COCA -- cases not attributed to the
- *                        trust's current admission or recent discharge.
+ *   all                          Every case regardless of onset / origin.
+ *   trust-apportioned            HOHA + COHA -- the total
+ *                                healthcare-associated cohort used in
+ *                                the NHS mandatory trust-level objective
+ *                                (also referred to as "trust-
+ *                                apportioned").
+ *   hospital-onset               HOHA only -- specimen taken on day 3
+ *                                or later of the current admission.
+ *   community-onset-hcai         COHA only -- community-onset cases in
+ *                                patients discharged from the same
+ *                                trust in the previous 28 days.
+ *   community-onset-community    COCA only -- no recent same-trust
+ *                                admission.
  */
-export const CDI_CLASSIFICATION_OPTIONS = [
-  { value: "all",               label: "All CDI cases" },
-  { value: "trust-apportioned", label: "Trust-apportioned (HOHA + COHA)" },
-  { value: "hospital-onset",    label: "Hospital onset only (HOHA)" },
-  { value: "community-onset",   label: "Community onset (COIA + COCA)" }
+export const APPORTIONMENT_OPTIONS = [
+  { value: "all",                       label: "All cases" },
+  { value: "trust-apportioned",         label: "Total healthcare-associated (HOHA + COHA)" },
+  { value: "hospital-onset",            label: "Hospital onset (HOHA)" },
+  { value: "community-onset-hcai",      label: "Community onset, healthcare associated (COHA)" },
+  { value: "community-onset-community", label: "Community onset, community associated (COCA)" }
 ];
 
-export const CDI_CLASSIFICATION_BINS = {
-  "all":               ["HOHA", "COHA", "COIA", "COCA"],
-  "trust-apportioned": ["HOHA", "COHA"],
-  "hospital-onset":    ["HOHA"],
-  "community-onset":   ["COIA", "COCA"]
+export const APPORTIONMENT_BINS = {
+  "all":                       ["HOHA", "COHA", "COCA"],
+  "trust-apportioned":         ["HOHA", "COHA"],
+  "hospital-onset":            ["HOHA"],
+  "community-onset-hcai":      ["COHA"],
+  "community-onset-community": ["COCA"]
 };
 
-export const CDI_DEFAULT_CLASSIFICATION = "trust-apportioned";
+export const APPORTIONMENT_DEFAULT = "trust-apportioned";
 
 /**
  * Convenience groupings for use by scenario templates when declaring the

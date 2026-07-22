@@ -402,7 +402,7 @@ main {
    non-respiratory topics. */
 .hai-cutoff-field,
 .subtype-field,
-.cdi-classification-field {
+.apportionment-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -413,13 +413,13 @@ main {
 
 .hai-cutoff-field[hidden],
 .subtype-field[hidden],
-.cdi-classification-field[hidden] {
+.apportionment-field[hidden] {
   display: none;
 }
 
 .hai-cutoff-field select,
 .subtype-field select,
-.cdi-classification-field select {
+.apportionment-field select {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;

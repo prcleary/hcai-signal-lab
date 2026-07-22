@@ -297,17 +297,18 @@ function haiCutoffLabel(cutoff) {
 }
 
 /**
- * Human-readable label for the CDI apportionment filter option
+ * Human-readable label for the onset-apportionment filter option
  * embedded in the learning record. Kept in export.js (not imported
  * from topics.js) so the export module has no runtime dependency on
- * topics; the four values are stable and short.
+ * topics; the five values are stable and short.
  */
-function cdiClassificationLabel(classification) {
+function apportionmentClassificationLabel(classification) {
   const labels = {
-    "all":               "All CDI cases",
-    "trust-apportioned": "Trust-apportioned (HOHA + COHA)",
-    "hospital-onset":    "Hospital onset only (HOHA)",
-    "community-onset":   "Community onset (COIA + COCA)"
+    "all":                       "All cases",
+    "trust-apportioned":         "Total healthcare-associated (HOHA + COHA)",
+    "hospital-onset":            "Hospital onset (HOHA)",
+    "community-onset-hcai":      "Community onset, healthcare associated (COHA)",
+    "community-onset-community": "Community onset, community associated (COCA)"
   };
 
   return labels[classification] || labels["trust-apportioned"];
@@ -485,8 +486,8 @@ function buildLearningRecordHtml({
         : ""
     }
     ${
-      surveillance?.code === "CDI"
-        ? `<dt>CDI apportionment</dt><dd>${escapeHtml(cdiClassificationLabel(displayOptions?.cdiClassification))}</dd>`
+      surveillance?.apportionmentCategories
+        ? `<dt>Onset apportionment</dt><dd>${escapeHtml(apportionmentClassificationLabel(displayOptions?.apportionment))}</dd>`
         : ""
     }
     <dt>Y-axis</dt><dd>${escapeHtml(yAxisTitle || "")}</dd>

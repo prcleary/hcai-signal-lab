@@ -125,12 +125,14 @@ different views before deciding.
   to detections classified as probable / definite hospital-onset
   based on how long after admission the patient tested positive. See
   the Glossary entry for "onset day".
-- **CDI apportionment** (C. difficile only) — filters cases to the NHS
-  mandatory apportionment categories: HOHA (hospital onset,
+- **Onset apportionment** (CDI + mandatory bacteraemia topics:
+  MRSA, MSSA, E. coli, Klebsiella, P. aeruginosa) — filters cases to
+  the NHS / UKHSA mandatory onset categories: HOHA (hospital onset,
   healthcare associated), COHA (community onset, healthcare
-  associated), COIA (indeterminate) or COCA (community associated).
-  Trust-apportioned = HOHA + COHA. Trying different views can reveal
-  that a signal is (or is not) hospital-driven.
+  associated) or COCA (community onset, community associated). Total
+  healthcare-associated (used for the NHS mandatory trust objective)
+  = HOHA + COHA. Trying different views can reveal that a signal is
+  (or is not) hospital-driven.
 
 **Location**
 
@@ -427,23 +429,28 @@ is catheter-days. Rate reported per 1,000 catheter-days.
 **CDI** — *Clostridioides difficile* infection. Reportable under the
 NHS mandatory HCAI surveillance framework.
 
-**CDI apportionment (HOHA / COHA / COIA / COCA)** — NHS mandatory
-attribution categories for CDI cases:
+**Apportionment (HOHA / COHA / COCA)** — NHS / UKHSA mandatory
+onset-attribution categories used for CDI **and** all mandatory
+bacteraemia surveillance (MRSA, MSSA, *E. coli*, *Klebsiella* spp.,
+*P. aeruginosa*). Definitions per the UKHSA data-dashboard metrics
+documentation and the mandatory HCAI surveillance protocol:
 
-- **HOHA** — Hospital Onset, Healthcare Associated. Specimen taken on
-  day 3 or later of the current trust admission (day of admission =
-  day 1).
-- **COHA** — Community Onset, Healthcare Associated. Specimen taken
-  on day 1 or 2, with discharge from the same trust in the previous
-  28 days.
-- **COIA** — Community Onset, Indeterminate Association. Specimen
-  taken outside hospital or on day 1/2 with a discharge from any
-  trust 29–84 days prior.
-- **COCA** — Community Onset, Community Associated. No admission to
-  any trust in the previous 12 weeks.
+- **HOHA** — Hospital Onset, Healthcare Associated. Specimen date
+  the same or more than 3 days after the current admission date
+  (day of admission = day 1).
+- **COHA** — Community Onset, Healthcare Associated. Not HOHA, and
+  the patient was most recently discharged from the same reporting
+  trust in the 28 days prior to the specimen date (day 1 = specimen
+  date).
+- **COCA** — Community Onset, Community Associated. Not HOHA and no
+  discharge from the same reporting organisation in the 28 days
+  prior.
 
-**Trust-apportioned** cases (used for the mandatory objective) are
-HOHA + COHA.
+**Total healthcare-associated** (used for the NHS mandatory
+trust-level objective, and still often referred to colloquially as
+"trust-apportioned") = HOHA + COHA. Two further administrative
+categories ("unknown" and "no information") exist in UKHSA data but
+are not modelled here.
 
 **Centre line** — The mean of the baseline period, plotted as a
 horizontal line on an SPC chart.
@@ -501,7 +508,7 @@ first detected several days after admission (see "onset day").
 acquires as a consequence of receiving healthcare. Includes but is
 not limited to hospital-acquired infection.
 
-**HOHA / COHA / COIA / COCA** — See *CDI apportionment*.
+**HOHA / COHA / COCA** — See *Apportionment*.
 
 **Index procedure** — For SSI surveillance, the operation whose
 outcome is being followed up (e.g. the colorectal resection or
@@ -541,13 +548,18 @@ cases, detections, positive screens or SSI events.
 
 **Onset day** — The number of days between hospital admission and the
 first positive specimen. For respiratory HAI surveillance the app
-uses the UKHSA / ECDC bins:
+uses the NHS England healthcare-associated COVID-19 classification
+(Aug 2020, updated Oct 2020), also applied here to influenza and
+RSV by analogy:
 
-- **Community** (onset day 1–2) — very likely acquired before
+- **CO — Community Onset** (day 1–2) — very likely acquired before
   admission.
-- **Indeterminate** (day 3–7) — cannot confidently classify.
-- **Probable HAI** (day 8–14) — likely hospital-acquired.
-- **Definite HAI** (day 15 or later) — hospital-acquired.
+- **HOIHA — Hospital-Onset Indeterminate Healthcare Associated**
+  (day 3–7) — cannot confidently classify.
+- **HOPHA — Hospital-Onset Probable Healthcare Associated**
+  (day 8–14) — likely hospital-acquired.
+- **HODHA — Hospital-Onset Definite Healthcare Associated**
+  (day 15 or later) — hospital-acquired.
 
 The *HAI onset cutoff* selector lets you choose which bins are
 counted.
@@ -578,10 +590,11 @@ interpretation.
 **RSV** — Respiratory syncytial virus. A seasonal respiratory
 pathogen with winter peaks; can cause nosocomial infection.
 
-**SARS-CoV-2 nosocomial classification** — The NHS scheme for
-classifying inpatient COVID-19 detections by onset day (community,
-indeterminate, probable HAI, definite HAI), analogous to the
-respiratory-HAI scheme.
+**SARS-CoV-2 nosocomial classification** — The NHS England scheme
+(Aug 2020, updated Oct 2020) for classifying inpatient COVID-19
+detections by onset day into CO / HOIHA / HOPHA / HODHA — see
+*Onset day*. Applied here by analogy to influenza and RSV; not a
+UKHSA-defined classification for those organisms.
 
 **Screening proportion** — Positive screens ÷ patients screened,
 expressed as a percentage. Used for CPE surveillance.

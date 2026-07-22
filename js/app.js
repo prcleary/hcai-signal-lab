@@ -107,8 +107,8 @@ function collectElements() {
     "showSignals",
     "haiCutoffSelect",
     "haiCutoffField",
-    "cdiClassificationSelect",
-    "cdiClassificationField",
+    "apportionmentSelect",
+    "apportionmentField",
     "subtypeSelect",
     "subtypeField",
     "mainChart",
@@ -151,7 +151,7 @@ function addEventListeners() {
     "showThreeSd",
     "showSignals",
     "haiCutoffSelect",
-    "cdiClassificationSelect",
+    "apportionmentSelect",
     "subtypeSelect"
   ];
 
@@ -409,7 +409,7 @@ function applyScenarioStateToControls() {
     display.showSignals;
 
   updateHaiCutoffControl(display.haiCutoff);
-  updateCdiClassificationControl(display.cdiClassification);
+  updateApportionmentControl(display.apportionment);
 
   elements.investigateSelect.value =
     scenario.learnerState.investigate || "";
@@ -530,9 +530,9 @@ function updateStateFromControls() {
       scenario.surveillance.surveillanceKind === "respiratory-hai"
         ? elements.haiCutoffSelect.value
         : null,
-    cdiClassification:
-      scenario.surveillance.code === "CDI"
-        ? elements.cdiClassificationSelect.value
+    apportionment:
+      scenario.surveillance.apportionmentCategories
+        ? elements.apportionmentSelect.value
         : null
   };
 
@@ -560,24 +560,27 @@ function updateHaiCutoffControl(storedCutoff) {
 }
 
 /**
- * The CDI apportionment selector applies only to the CDI topic.
- * Hide the containing field entirely for other topics; when shown,
- * seed it from the stored display state (falling back to the
- * trust-apportioned default when the stored scenario predates this
- * feature).
+ * The onset-apportionment selector applies to any topic carrying
+ * `apportionmentCategories` (CDI plus every mandatory bacteraemia
+ * topic). Hide the containing field entirely for other topics; when
+ * shown, seed it from the stored display state (falling back to the
+ * total healthcare-associated default when the stored scenario predates
+ * this feature).
  */
-function updateCdiClassificationControl(storedClassification) {
+function updateApportionmentControl(storedClassification) {
   if (
-    !elements.cdiClassificationField ||
-    !elements.cdiClassificationSelect
+    !elements.apportionmentField ||
+    !elements.apportionmentSelect
   ) return;
 
-  const isCdi = scenario.surveillance.code === "CDI";
+  const hasApportionment = Boolean(
+    scenario.surveillance.apportionmentCategories
+  );
 
-  elements.cdiClassificationField.hidden = !isCdi;
+  elements.apportionmentField.hidden = !hasApportionment;
 
-  if (isCdi) {
-    elements.cdiClassificationSelect.value =
+  if (hasApportionment) {
+    elements.apportionmentSelect.value =
       storedClassification || "trust-apportioned";
   }
 }
@@ -697,7 +700,7 @@ function updateSpcCaveat(chartType) {
 function getSpcLabel(chartType, surveillance) {
   if (chartType === "none") {
     return withSubtypeSuffix(
-      withCdiClassificationSuffix(
+      withApportionmentSuffix(
         withHaiCutoffSuffix("No control limits", surveillance),
         surveillance
       ),
@@ -713,7 +716,7 @@ function getSpcLabel(chartType, surveillance) {
       : base;
 
   return withSubtypeSuffix(
-    withCdiClassificationSuffix(
+    withApportionmentSuffix(
       withHaiCutoffSuffix(label, surveillance),
       surveillance
     ),
@@ -751,22 +754,26 @@ function withHaiCutoffSuffix(label, surveillance) {
 }
 
 /**
- * For the CDI topic, append the currently selected apportionment
+ * For any topic carrying apportionment metadata (CDI + every mandatory
+ * bacteraemia topic), append the currently selected onset-apportionment
  * filter to the SPC label so the learner sees which cohort of cases
- * (HOHA / COHA / COIA / COCA) the chart is plotting.
+ * (HOHA / COHA / COCA and combinations thereof) the chart is plotting.
  */
-function withCdiClassificationSuffix(label, surveillance) {
-  if (!surveillance || surveillance.code !== "CDI") return label;
+function withApportionmentSuffix(label, surveillance) {
+  if (!surveillance || !surveillance.apportionmentCategories) {
+    return label;
+  }
 
   const classification =
-    scenario?.learnerState?.display?.cdiClassification ||
+    scenario?.learnerState?.display?.apportionment ||
     "trust-apportioned";
 
   const suffixByClassification = {
     "all": "all cases",
     "trust-apportioned": "HOHA + COHA",
     "hospital-onset": "HOHA only",
-    "community-onset": "COIA + COCA"
+    "community-onset-hcai": "COHA only",
+    "community-onset-community": "COCA only"
   };
 
   const suffix = suffixByClassification[classification];

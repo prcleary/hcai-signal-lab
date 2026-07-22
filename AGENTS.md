@@ -124,14 +124,23 @@ glossary in `README.md` for definitions.
   - `screening-proportion` — CPE screening.
   - `respiratory-hai` — SARS-CoV-2, influenza, RSV; carries
     `onsetBins` (community / indeterminate / probableHAI /
-    definiteHAI).
+    definiteHAI). Day cutoffs (1–2 / 3–7 / 8–14 / ≥15) match the
+    NHS England healthcare-associated COVID-19 classification
+    (CO / HOIHA / HOPHA / HODHA); applied here by analogy to
+    influenza and RSV.
   - `device-days` — CAUTI, CLABSI. Rate per 1,000 device-days.
   - `procedure-cohort` — SSI (colorectal, cardiac). Rate as a
     percentage of index procedures.
-- **CDI apportionment**: HOHA, COHA, COIA, COCA. Trust-apportioned =
-  HOHA + COHA. Definitions in the header comment of `topics.js` and
-  the README glossary; matches the NHS mandatory framework
-  (April 2019, reaffirmed April 2023).
+- **Onset apportionment** (`apportionmentCategories` /
+  `apportionmentBins`): HOHA, COHA, COCA. Total healthcare-associated
+  (used for the NHS mandatory trust objective) = HOHA + COHA. Applies
+  to CDI **and** every mandatory bacteraemia topic (MRSA, MSSA,
+  *E. coli*, *Klebsiella*, *P. aeruginosa*). Definitions in the header
+  comment of `js/topics.js` and the README glossary; matches the
+  UKHSA mandatory-surveillance framework as documented on the
+  UKHSA data dashboard metrics documentation. Note: earlier UK
+  frameworks used a fourth category COIA — this is not part of the
+  current UKHSA framework and is not modelled.
 - **HAI onset cutoffs**: `all`, `excluding-community`,
   `probable-and-definite` (default), `definite-only`.
 - **SPC charts**: `c` (Poisson count, constant area of opportunity),
