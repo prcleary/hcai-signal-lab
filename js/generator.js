@@ -11,13 +11,16 @@ export const SCENARIO_TEMPLATES = [
     id: "single-extreme",
     name: "Isolated extreme observation",
     difficulty: 1,
-    appliesTo: ["CDI", "MRSA", "CPE", "ECOLI"]
+    // MRSA excluded: baseline is so low that a x5 spike still resolves to
+    // zero cases in most weeks and would leave no visible signal.
+    appliesTo: ["CDI", "CPE", "ECOLI"]
   },
   {
     id: "step-increase",
     name: "Sustained step increase",
     difficulty: 1,
-    appliesTo: ["CDI", "MRSA", "CPE", "ECOLI"]
+    // MRSA excluded: a x2 step on ~0.05 cases/week is not detectable.
+    appliesTo: ["CDI", "CPE", "ECOLI"]
   },
   {
     id: "gradual-trend",
@@ -29,6 +32,9 @@ export const SCENARIO_TEMPLATES = [
     id: "local-outbreak",
     name: "Localised ward outbreak",
     difficulty: 2,
+    // MRSA kept: even a handful of cases in one ward is significant for a
+    // rare organism. The outbreak multiplier is boosted for rare topics
+    // (see getScenarioMultiplier) so the affected ward reliably shows cases.
     appliesTo: ["CDI", "MRSA", "CPE", "ECOLI"]
   },
   {
@@ -59,7 +65,9 @@ export const SCENARIO_TEMPLATES = [
     id: "reporting-artefact",
     name: "Reporting delay or batch reporting",
     difficulty: 3,
-    appliesTo: ["CDI", "MRSA", "CPE", "ECOLI"]
+    // MRSA excluded: a tail dip from ~0 to 0 is invisible, so the reveal
+    // would be unverifiable in the chart.
+    appliesTo: ["CDI", "CPE", "ECOLI"]
   }
 ];
 
@@ -341,7 +349,8 @@ function getScenarioMultiplier({
   totalWeeks,
   changePoint,
   wardName,
-  affectedWard
+  affectedWard,
+  topic
 }) {
   switch (template.id) {
     case "step-increase":
@@ -365,7 +374,10 @@ function getScenarioMultiplier({
         weekIndex >= changePoint &&
         weekIndex <= outbreakEnd
       ) {
-        return 4;
+        // Rare organisms need a much bigger multiplier or the outbreak
+        // leaves no visible cases at all. Threshold of 0.0001 catches
+        // MRSA (baseline 0.00005 per bed-day) but not CDI/ECOLI.
+        return topic && topic.baselineRate < 0.0001 ? 15 : 4;
       }
 
       return 1;
@@ -398,8 +410,8 @@ function generateWeeklyObservation({
 }) {
   const bedDays = randomInteger(
     random,
-    Math.round(hospital.beds * 0.65),
-    Math.round(hospital.beds * 0.9)
+    Math.round(hospital.beds * 7 * 0.65),
+    Math.round(hospital.beds * 7 * 0.90)
   );
 
   const wardShare = 1 / hospital.wards.length;
@@ -411,7 +423,8 @@ function generateWeeklyObservation({
     totalWeeks,
     changePoint,
     wardName: ward.name,
-    affectedWard
+    affectedWard,
+    topic
   });
 
   const afterChange =
@@ -588,7 +601,7 @@ export function generateScenario(seed = generateSeed()) {
     : null;
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     id: `scenario-${seed.toString(16)}`,
     seed,
     generatedAt: new Date().toISOString(),

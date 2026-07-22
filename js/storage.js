@@ -6,7 +6,7 @@ const CURRENT_KEY =
 const HISTORY_KEY =
   "hcai-signal-lab.history.v1";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 const HISTORY_LIMIT = 20;
 

@@ -566,9 +566,42 @@ main {
   color: var(--clinical-dark-blue);
 }
 
+#revealContent h4 {
+  margin: 16px 0 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
 #revealContent p {
   margin: 4px 0;
   color: var(--text);
+}
+
+#revealContent dl {
+  margin: 4px 0 8px;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+}
+
+#revealContent dt {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+#revealContent dd {
+  margin: 0;
+}
+
+#revealContent ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+#revealContent li {
+  margin-bottom: 4px;
 }
 
 /* --- Footer ------------------------------------------------------------- */
