@@ -263,15 +263,86 @@ function chooseTopicAndTemplate(random) {
   };
 }
 
+/**
+ * Change points are chosen so the shift sits comfortably inside the
+ * default 52-week visible window (weeks 104..155 for a 156-week series).
+ * Templates without a discrete change point return null.
+ */
+function getChangePoint(random, template, totalWeeks) {
+  const positions = {
+    "step-increase": 0.80,
+    "gradual-trend": 0.72,
+    "local-outbreak": 0.85,
+    "single-extreme": 0.80,
+    "screening-expansion": 0.80,
+    "targeted-screening": 0.80,
+    "denominator-change": 0.80
+  };
+
+  const fraction = positions[template.id];
+  if (fraction == null) return null;
+
+  // +/- 6 weeks of jitter so identical templates do not land on the same week.
+  const jitter = Math.floor(random() * 13) - 6;
+  let point = Math.floor(totalWeeks * fraction) + jitter;
+
+  // The eight-week local outbreak must end inside the series.
+  if (template.id === "local-outbreak") {
+    point = Math.min(point, totalWeeks - 8);
+  }
+
+  // Always leave at least 20 weeks of pre-change baseline for SPC estimation.
+  return Math.max(20, point);
+}
+
+/**
+ * Number of leading weeks used as the SPC baseline. For change-point
+ * templates the baseline ends four weeks before the change so limits are
+ * derived from a clean "before" period.
+ */
+function getBaselineWeeks(template, changePoint, totalWeeks) {
+  if (changePoint == null) {
+    return Math.floor(totalWeeks * 0.77);
+  }
+
+  return Math.max(20, changePoint - 4);
+}
+
+/**
+ * Simulates delayed / batch reporting. Recent weeks are under-reported
+ * (results still pending) and a batch of overdue reports is filed a few
+ * weeks earlier. Applied to the numerator only; denominators (bed-days or
+ * screened patients) are unaffected because they reflect activity, not
+ * result reporting.
+ */
+function applyReportingArtefact(
+  numerator,
+  template,
+  weekIndex,
+  totalWeeks
+) {
+  if (template.id !== "reporting-artefact") {
+    return numerator;
+  }
+
+  const fromEnd = totalWeeks - 1 - weekIndex;
+
+  if (fromEnd === 0) return Math.round(numerator * 0.10);
+  if (fromEnd === 1) return Math.round(numerator * 0.40);
+  if (fromEnd === 2) return Math.round(numerator * 0.75);
+  if (fromEnd === 5) return Math.round(numerator * 2.4);
+
+  return numerator;
+}
+
 function getScenarioMultiplier({
   template,
   weekIndex,
   totalWeeks,
+  changePoint,
   wardName,
   affectedWard
 }) {
-  const changePoint = Math.floor(totalWeeks * 0.68);
-
   switch (template.id) {
     case "step-increase":
       return weekIndex >= changePoint ? 2.1 : 1;
@@ -321,6 +392,7 @@ function generateWeeklyObservation({
   ward,
   weekIndex,
   totalWeeks,
+  changePoint,
   date,
   affectedWard
 }) {
@@ -337,38 +409,51 @@ function generateWeeklyObservation({
     template,
     weekIndex,
     totalWeeks,
+    changePoint,
     wardName: ward.name,
     affectedWard
   });
+
+  const afterChange =
+    changePoint != null && weekIndex >= changePoint;
 
   if (topic.code === "CPE") {
     let screened = randomInteger(random, 15, 55);
     let positivity = topic.baselineRate * ward.risk * scenarioMultiplier;
 
-    const changePoint = Math.floor(totalWeeks * 0.68);
-
-    if (
-      template.id === "screening-expansion" &&
-      weekIndex >= changePoint
-    ) {
+    if (template.id === "screening-expansion" && afterChange) {
       screened = Math.round(screened * 2.5);
     }
 
-    if (
-      template.id === "targeted-screening" &&
-      weekIndex >= changePoint
-    ) {
+    if (template.id === "targeted-screening" && afterChange) {
       screened = Math.round(screened * 0.75);
       positivity *= 2.2;
     }
 
+    if (template.id === "denominator-change" && afterChange) {
+      screened = Math.max(1, Math.round(screened * 0.55));
+    }
+
     positivity = Math.min(0.4, positivity);
+
+    const rawNumerator = randomBinomial(
+      random,
+      screened,
+      positivity
+    );
+
+    const numerator = applyReportingArtefact(
+      rawNumerator,
+      template,
+      weekIndex,
+      totalWeeks
+    );
 
     return {
       date: formatDate(date),
       site: ward.site,
       ward: ward.name,
-      numerator: randomBinomial(random, screened, positivity),
+      numerator,
       denominator: screened,
       bedDays: wardBedDays
     };
@@ -376,11 +461,8 @@ function generateWeeklyObservation({
 
   let denominator = wardBedDays;
 
-  if (
-    template.id === "denominator-change" &&
-    weekIndex >= Math.floor(totalWeeks * 0.68)
-  ) {
-    denominator = Math.round(denominator * 0.55);
+  if (template.id === "denominator-change" && afterChange) {
+    denominator = Math.max(1, Math.round(denominator * 0.55));
   }
 
   const expectedCases =
@@ -389,11 +471,20 @@ function generateWeeklyObservation({
     ward.risk *
     scenarioMultiplier;
 
+  const rawNumerator = randomPoisson(random, expectedCases);
+
+  const numerator = applyReportingArtefact(
+    rawNumerator,
+    template,
+    weekIndex,
+    totalWeeks
+  );
+
   return {
     date: formatDate(date),
     site: ward.site,
     ward: ward.name,
-    numerator: randomPoisson(random, expectedCases),
+    numerator,
     denominator,
     bedDays: denominator
   };
@@ -446,10 +537,14 @@ export function generateScenario(seed = generateSeed()) {
     chooseTopicAndTemplate(random);
 
   const totalWeeks = 156;
-  const affectedWard = choose(
-    random,
-    hospital.wards
-  ).name;
+  const affectedWard = choose(random, hospital.wards).name;
+
+  const changePoint = getChangePoint(random, template, totalWeeks);
+  const baselineWeeks = getBaselineWeeks(
+    template,
+    changePoint,
+    totalWeeks
+  );
 
   const startDate = new Date();
   startDate.setUTCHours(0, 0, 0, 0);
@@ -476,6 +571,7 @@ export function generateScenario(seed = generateSeed()) {
           ward,
           weekIndex,
           totalWeeks,
+          changePoint,
           date,
           affectedWard
         })
@@ -483,23 +579,33 @@ export function generateScenario(seed = generateSeed()) {
     }
   }
 
+  const baselineEndDate = formatDate(
+    addDays(startDate, Math.max(0, baselineWeeks - 1) * 7)
+  );
+
+  const changePointDate = changePoint != null
+    ? formatDate(addDays(startDate, changePoint * 7))
+    : null;
+
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: `scenario-${seed.toString(16)}`,
     seed,
     generatedAt: new Date().toISOString(),
 
     hospital,
 
-    surveillance: {
-      ...topic
-    },
+    surveillance: { ...topic },
 
     observations,
+    baselineWeeks,
+    baselineEndDate,
 
     groundTruth: {
       templateId: template.id,
       templateName: template.name,
+      changePoint,
+      changePointDate,
       affectedWard:
         template.id === "local-outbreak"
           ? affectedWard

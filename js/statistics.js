@@ -172,134 +172,105 @@ export function addMovingAverage(points, windowSize) {
   });
 }
 
-export function calculatePChart(points) {
-  const totalEvents = points.reduce(
-    (sum, point) => sum + point.numerator,
-    0
-  );
+/**
+ * Computes an SPC centre line from a baseline period.
+ * The same centre is extended forward across every displayed point,
+ * so that shifts occurring after the baseline can be detected as
+ * departures from a stable phase-1 estimate.
+ */
+export function computeBaselineCentre(baselinePoints, chartType) {
+  if (!baselinePoints || !baselinePoints.length) return 0;
 
-  const totalOpportunities = points.reduce(
-    (sum, point) => sum + point.denominator,
-    0
-  );
+  if (chartType === "p" || chartType === "u") {
+    const totalEvents = baselinePoints.reduce(
+      (sum, point) => sum + point.numerator,
+      0
+    );
 
-  const centre = totalOpportunities > 0
-    ? totalEvents / totalOpportunities
-    : 0;
+    const totalOpportunities = baselinePoints.reduce(
+      (sum, point) => sum + point.denominator,
+      0
+    );
+
+    return totalOpportunities > 0
+      ? totalEvents / totalOpportunities
+      : 0;
+  }
+
+  if (chartType === "c") {
+    return mean(
+      baselinePoints.map(point => point.numerator)
+    );
+  }
+
+  return 0;
+}
+
+/**
+ * Applies a fixed baseline centre and per-point control limits to every
+ * observation. The centre line is constant; individual limits vary with
+ * each point's own denominator (so, for example, a quieter week has
+ * wider limits on a p- or u-chart).
+ */
+export function applyBaselineControlChart(
+  points,
+  chartType,
+  baselineCentre,
+  rateMultiplier = 1
+) {
+  const scale =
+    chartType === "p" || chartType === "u"
+      ? rateMultiplier
+      : 1;
 
   return points.map(point => {
     const denominator = point.denominator;
+    let value = null;
+    let lower2 = null;
+    let upper2 = null;
+    let lower3 = null;
+    let upper3 = null;
 
-    if (!denominator) {
-      return {
-        ...point,
-        centre: null,
-        lower2: null,
-        upper2: null,
-        lower3: null,
-        upper3: null
-      };
+    if (chartType === "p") {
+      if (denominator > 0) {
+        const se = Math.sqrt(
+          baselineCentre * (1 - baselineCentre) / denominator
+        );
+
+        value = point.numerator / denominator;
+        lower2 = Math.max(0, baselineCentre - 2 * se);
+        upper2 = Math.min(1, baselineCentre + 2 * se);
+        lower3 = Math.max(0, baselineCentre - 3 * se);
+        upper3 = Math.min(1, baselineCentre + 3 * se);
+      }
+    } else if (chartType === "u") {
+      if (denominator > 0) {
+        const se = Math.sqrt(baselineCentre / denominator);
+
+        value = point.numerator / denominator;
+        lower2 = Math.max(0, baselineCentre - 2 * se);
+        upper2 = baselineCentre + 2 * se;
+        lower3 = Math.max(0, baselineCentre - 3 * se);
+        upper3 = baselineCentre + 3 * se;
+      }
+    } else if (chartType === "c") {
+      const sd = Math.sqrt(Math.max(0, baselineCentre));
+
+      value = point.numerator;
+      lower2 = Math.max(0, baselineCentre - 2 * sd);
+      upper2 = baselineCentre + 2 * sd;
+      lower3 = Math.max(0, baselineCentre - 3 * sd);
+      upper3 = baselineCentre + 3 * sd;
     }
-
-    const standardError = Math.sqrt(
-      centre * (1 - centre) / denominator
-    );
 
     return {
       ...point,
-      value: point.numerator / denominator,
-      centre,
-      lower2: Math.max(
-        0,
-        centre - 2 * standardError
-      ),
-      upper2: Math.min(
-        1,
-        centre + 2 * standardError
-      ),
-      lower3: Math.max(
-        0,
-        centre - 3 * standardError
-      ),
-      upper3: Math.min(
-        1,
-        centre + 3 * standardError
-      )
-    };
-  });
-}
-
-export function calculateCChart(points) {
-  const centre = mean(
-    points.map(point => point.numerator)
-  );
-
-  const standardDeviation = Math.sqrt(centre);
-
-  return points.map(point => ({
-    ...point,
-    value: point.numerator,
-    centre,
-    lower2: Math.max(
-      0,
-      centre - 2 * standardDeviation
-    ),
-    upper2: centre + 2 * standardDeviation,
-    lower3: Math.max(
-      0,
-      centre - 3 * standardDeviation
-    ),
-    upper3: centre + 3 * standardDeviation
-  }));
-}
-
-export function calculateUChart(points) {
-  const totalEvents = points.reduce(
-    (sum, point) => sum + point.numerator,
-    0
-  );
-
-  const totalExposure = points.reduce(
-    (sum, point) => sum + point.denominator,
-    0
-  );
-
-  const centre = totalExposure > 0
-    ? totalEvents / totalExposure
-    : 0;
-
-  return points.map(point => {
-    const exposure = point.denominator;
-
-    if (!exposure) {
-      return {
-        ...point,
-        centre: null,
-        lower2: null,
-        upper2: null,
-        lower3: null,
-        upper3: null
-      };
-    }
-
-    const standardError = Math.sqrt(
-      centre / exposure
-    );
-
-    return {
-      ...point,
-      value: point.numerator / exposure,
-      centre,
-      lower2: Math.max(
-        0,
-        centre - 2 * standardError
-      ),
-      upper2: centre + 2 * standardError,
-      lower3: Math.max(
-        0,
-        centre - 3 * standardError
-      ),
-      upper3: centre + 3 * standardError
+      value: value !== null ? value * scale : null,
+      centre: baselineCentre * scale,
+      lower2: lower2 !== null ? lower2 * scale : null,
+      upper2: upper2 !== null ? upper2 * scale : null,
+      lower3: lower3 !== null ? lower3 * scale : null,
+      upper3: upper3 !== null ? upper3 * scale : null
     };
   });
 }
@@ -314,70 +285,11 @@ export function selectControlChart(
   }
 
   if (measure === "proportion") return "p";
-  if (measure === "count") return "c";
 
+  // For count and rate measures defer to the topic's recommended chart
+  // so, e.g., CPE counts still use a p-chart proxy via the recommended
+  // chart rather than an inappropriate c-chart.
   return surveillance.recommendedChart || "u";
-}
-
-/**
- * Applies the SPC calculation and converts results to the
- * units displayed on the chart.
- */
-export function calculateControlChart(
-  points,
-  chartType,
-  rateMultiplier = 1
-) {
-  let calculated;
-
-  if (chartType === "p") {
-    calculated = calculatePChart(points);
-  } else if (chartType === "c") {
-    calculated = calculateCChart(points);
-  } else if (chartType === "u") {
-    calculated = calculateUChart(points);
-  } else {
-    return points;
-  }
-
-  const multiplier =
-    chartType === "p" || chartType === "u"
-      ? rateMultiplier
-      : 1;
-
-  return calculated.map(point => ({
-    ...point,
-    value: multiplyNullable(
-      point.value,
-      multiplier
-    ),
-    centre: multiplyNullable(
-      point.centre,
-      multiplier
-    ),
-    lower2: multiplyNullable(
-      point.lower2,
-      multiplier
-    ),
-    upper2: multiplyNullable(
-      point.upper2,
-      multiplier
-    ),
-    lower3: multiplyNullable(
-      point.lower3,
-      multiplier
-    ),
-    upper3: multiplyNullable(
-      point.upper3,
-      multiplier
-    )
-  }));
-}
-
-function multiplyNullable(value, multiplier) {
-  return Number.isFinite(value)
-    ? value * multiplier
-    : null;
 }
 
 export function detectSignals(points) {
@@ -442,6 +354,15 @@ export function detectSignals(points) {
 
 /**
  * Main analysis pipeline called by app.js.
+ *
+ * The pipeline is run over the FULL series so that:
+ *   - SPC centre and limits come from a phase-1 baseline slice, not
+ *     from whatever window the learner is currently looking at;
+ *   - moving-average smoothing has proper lead-in from pre-window data;
+ *   - signal-run rules (e.g. eight in a row) reflect the true series.
+ *
+ * The user's time-window selection only slices the returned series at
+ * the very end, once all statistics have been computed.
  */
 export function prepareAnalysis(
   scenario,
@@ -455,17 +376,14 @@ export function prepareAnalysis(
     }
   );
 
-  let points = combineByDate(filtered);
+  const combined = combineByDate(filtered);
 
-  points = limitTimeWindow(
-    points,
-    displayOptions.timeWindow
+  const aggregation = Math.max(
+    1,
+    Number(displayOptions.aggregation) || 1
   );
 
-  points = aggregatePoints(
-    points,
-    displayOptions.aggregation
-  );
+  const aggregated = aggregatePoints(combined, aggregation);
 
   const chartType = selectControlChart(
     displayOptions.spcType,
@@ -473,32 +391,72 @@ export function prepareAnalysis(
     displayOptions.measure
   );
 
+  const rateMultiplier = scenario.surveillance.rateMultiplier;
+
+  // Phase-1 baseline slice: take the earliest N aggregated groups whose
+  // total covers roughly the scenario's baseline window in weeks.
+  const baselineWeeks =
+    scenario.baselineWeeks ||
+    Math.floor(combined.length * 0.75);
+
+  const baselineGroupCount = Math.min(
+    aggregated.length,
+    Math.max(6, Math.floor(baselineWeeks / aggregation))
+  );
+
+  const baselinePoints = aggregated.slice(0, baselineGroupCount);
+
+  let processed;
+
   if (chartType === "none") {
-    points = addDisplayedValues(
-      points,
+    processed = addDisplayedValues(
+      aggregated,
       displayOptions.measure,
-      scenario.surveillance.rateMultiplier
+      rateMultiplier
     );
   } else {
-    points = calculateControlChart(
-      points,
-      chartType,
-      scenario.surveillance.rateMultiplier
+    const centre = computeBaselineCentre(
+      baselinePoints,
+      chartType
     );
 
-    points = detectSignals(points);
+    processed = applyBaselineControlChart(
+      aggregated,
+      chartType,
+      centre,
+      rateMultiplier
+    );
+
+    processed = detectSignals(processed);
   }
 
-  points = addMovingAverage(
-    points,
+  processed = addMovingAverage(
+    processed,
     displayOptions.smoothing
   );
 
+  // Time window is expressed in weeks; convert to aggregated groups.
+  const visibleGroupCount = Math.max(
+    1,
+    Math.ceil(
+      Number(displayOptions.timeWindow) / aggregation
+    )
+  );
+
+  const visible = limitTimeWindow(processed, visibleGroupCount);
+
+  const lastBaselinePoint =
+    baselinePoints[baselinePoints.length - 1];
+
   return {
-    points,
+    points: visible,
     chartType,
-    signalCount: points.filter(
+    signalCount: visible.filter(
       point => point.isSignal
-    ).length
+    ).length,
+    baselineGroupCount,
+    baselineEndDate: lastBaselinePoint
+      ? lastBaselinePoint.endDate || lastBaselinePoint.date
+      : null
   };
 }
