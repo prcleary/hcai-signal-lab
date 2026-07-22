@@ -264,8 +264,9 @@ The learning objectives are:
    testing changes).
 3. Read and choose between c-, u- and p-charts, and understand why the
    SPC chart type must match the plotted measure.
-4. Apply NHS mandatory HCAI definitions (CDI apportionment, HAI
-   onset-day classification, CPE screening).
+4. Apply NHS mandatory HCAI definitions (onset apportionment for
+   CDI and mandatory bacteraemia, HAI onset-day classification,
+   CPE screening).
 5. Practise writing a defensible, brief investigation note before
    revealing the underlying explanation.
 
@@ -345,8 +346,10 @@ information must.
   (~4,500 bed-days per week). They are illustrative, not
   authoritative.
 - NHS mandatory definitions used are current as at the app's release
-  date (April 2019 CDI apportionment framework, reaffirmed in the
-  April 2023 revision).
+  date. Onset-apportionment categories (HOHA / COHA / COCA) follow
+  the UKHSA data dashboard metrics documentation for MRSA, MSSA,
+  *E. coli*, *Klebsiella* spp., *P. aeruginosa* bacteraemia and
+  *C. difficile* infection.
 - Bed-days, device-days, procedures, screening volumes and case
   counts are generated from a seeded pseudo-random number generator,
   so the same scenario always regenerates identically on any device.
@@ -633,7 +636,10 @@ displacement patterns hidden in the total count.
 **Trust** — An NHS body operating one or more hospitals. The
 denominator context for most NHS mandatory HCAI reporting.
 
-**Trust-apportioned** — See *CDI apportionment*.
+**Trust-apportioned** — See *Apportionment*. In the current UKHSA
+framework this cohort is more precisely called *total
+healthcare-associated* (HOHA + COHA); "trust-apportioned" remains in
+common NHS usage.
 
 **u-chart** — SPC chart for a **rate** (count per unit of opportunity)
 assumed Poisson. Limits vary with the denominator each period,

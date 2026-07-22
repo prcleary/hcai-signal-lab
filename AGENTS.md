@@ -94,16 +94,16 @@ css/app.css              All styling. NHS-inspired palette. No preprocessor.
 js/app.js                UI controller. Wires DOM to the analysis and export pipeline.
 js/topics.js             Surveillance topics (organism, denominator, baseline rate,
                          recommended chart, subtypes, seasonality, HAI onset bin
-                         weights, CDI apportionment weights). Data-only module.
+                         weights, onset-apportionment weights). Data-only module.
 js/templates.js          Scenario templates (id, name, difficulty, category, applies-to).
                          Data-only module.
 js/generator.js          Deterministic scenario generator. Uses mulberry32.
-js/statistics.js         Aggregation, HAI-cutoff filter, CDI-classification filter,
+js/statistics.js         Aggregation, HAI-cutoff filter, onset-apportionment filter,
                          SPC (c/u/p chart), Nelson rules 1 & 4, signal detection.
 js/chart.js              Canvas renderer. Handles smoothing overlay, limits, signals,
                          axis labelling.
 js/export.js             PNG / CSV / learning-record HTML exports.
-js/storage.js            localStorage schema v3. Keys:
+js/storage.js            localStorage schema v4. Keys:
                             hcai-signal-lab.current.v1
                             hcai-signal-lab.history.v1
 js/tips.js               Investigation tips shown on the reveal panel.
@@ -169,7 +169,7 @@ The user is on **Windows PowerShell 5.1**.
   ```powershell
   node tests/scenarios.smoke.mjs
   ```
-  It should print `26845/26845 checks passed` (numbers may grow as
+  It should print `39337/39337 checks passed` (numbers may grow as
   topics or templates are added — never shrink without justification).
 - When editing a file that must be available offline, remember to
   update `PRECACHE_URLS` and bump `CACHE_VERSION` in
@@ -252,7 +252,7 @@ The user is on **Windows PowerShell 5.1**.
 - One logical change per commit. No mixed refactors and feature
   changes.
 - Subject line ≤ 72 characters, imperative mood
-  ("Add CDI apportionment selector", not "Added" or "Adds").
+  ("Add onset-apportionment selector", not "Added" or "Adds").
 - Body describes rationale, cites NHS / UKHSA definitions where
   relevant, and lists any verification (smoke test, browser
   behaviour observed).
