@@ -208,6 +208,24 @@ export function renderChart(
     24
   );
   context.restore();
+
+  /*
+   * Chart-type label so the learner can see at a glance which SPC
+   * chart is currently plotted (c-, u-, p- or none) without having
+   * to cross-refer to the control panel.
+   */
+  if (options.spcLabel) {
+    context.save();
+    context.fillStyle = "#231f20";
+    context.font = "bold 14px Arial";
+    context.textAlign = "left";
+    context.fillText(
+      options.spcLabel,
+      padding.left,
+      24
+    );
+    context.restore();
+  }
 }
 
 function collectChartValues(points, options) {

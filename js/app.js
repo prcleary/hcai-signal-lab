@@ -526,7 +526,11 @@ function renderApplication() {
       yAxisTitle: getYAxisTitle(
         options.measure
       ),
-      integerYAxis: options.measure === "count"
+      integerYAxis: options.measure === "count",
+      spcLabel: getSpcLabel(
+        currentAnalysis.chartType,
+        scenario.surveillance
+      )
     }
   );
 
@@ -538,8 +542,13 @@ function renderApplication() {
 }
 
 function updateSpcCaveat(chartType) {
+  const surveillance = scenario.surveillance;
+  const recommended = surveillance.recommendedChart;
+  const supportsProportion =
+    surveillance.availableMeasures &&
+    surveillance.availableMeasures.includes("proportion");
+
   const messages = [];
-  const recommended = scenario.surveillance.recommendedChart;
 
   if (
     chartType === "c" &&
@@ -547,17 +556,16 @@ function updateSpcCaveat(chartType) {
     recommended !== "c"
   ) {
     messages.push(
-      "A c-chart assumes a constant area of opportunity each period. For this organism the denominator varies (e.g. patients screened or bed-days), so c-chart limits can be misleading. Consider viewing the rate or proportion instead."
+      `A c-chart assumes a constant area of opportunity each period. For this topic the denominator varies (e.g. patients screened or bed-days), so c-chart limits can be misleading. The recommended chart for this topic is a ${recommended}-chart.`
     );
   }
 
   if (
     chartType === "p" &&
-    scenario.surveillance.availableMeasures &&
-    !scenario.surveillance.availableMeasures.includes("proportion")
+    !supportsProportion
   ) {
     messages.push(
-      "A p-chart is being applied to a topic that is normally monitored as counts or rates. The limits may not reflect the process well."
+      `A p-chart treats each unit of the denominator as an independent yes/no trial (e.g. one screened patient). For this topic the denominator is person-time (bed-days), which is not a count of Bernoulli trials \u2014 the theoretical basis of a p-chart does not apply. In practice, when the event rate is very low, p-chart and u-chart limits are numerically almost identical. The recommended chart for this topic is a ${recommended}-chart.`
     );
   }
 
@@ -574,6 +582,23 @@ function updateSpcCaveat(chartType) {
     elements.spcCaveat.textContent = "";
     elements.spcCaveat.hidden = true;
   }
+}
+
+function getSpcLabel(chartType, surveillance) {
+  if (chartType === "none") {
+    return "No control limits";
+  }
+
+  const label = `${chartType}-chart`;
+
+  if (
+    surveillance &&
+    surveillance.recommendedChart === chartType
+  ) {
+    return `${label} \u2014 recommended for this topic`;
+  }
+
+  return label;
 }
 
 function updateScenarioHeader() {
