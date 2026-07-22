@@ -389,6 +389,8 @@ function handleDisplayChange(event) {
     updateWardControl();
   }
 
+  syncMeasureAndSpcControls(event.target);
+
   updateStateFromControls();
 
   logAction("changed-display", {
@@ -400,6 +402,63 @@ function handleDisplayChange(event) {
   });
 
   renderApplication();
+}
+
+/**
+ * The Measure and Control chart selectors are conceptually the same
+ * choice (count / rate / proportion). Under the covers the plotted value
+ * follows the chart type, so if the two selectors disagree the y-axis
+ * silently rescales without any visible signal to the learner. Keep
+ * them in step so the UI reflects what the chart actually shows.
+ */
+function syncMeasureAndSpcControls(source) {
+  const chartToMeasure = {
+    c: "count",
+    u: "rate",
+    p: "proportion"
+  };
+
+  const measureToChart = {
+    count: "c",
+    rate: "u",
+    proportion: "p"
+  };
+
+  const available =
+    scenario.surveillance.availableMeasures || [];
+
+  if (source === elements.spcSelect) {
+    const targetMeasure =
+      chartToMeasure[elements.spcSelect.value];
+
+    if (
+      targetMeasure &&
+      available.includes(targetMeasure) &&
+      elements.measureSelect.value !== targetMeasure
+    ) {
+      elements.measureSelect.value = targetMeasure;
+    }
+
+    return;
+  }
+
+  if (source === elements.measureSelect) {
+    const targetChart =
+      measureToChart[elements.measureSelect.value];
+
+    const currentSpc = elements.spcSelect.value;
+
+    // Only realign the SPC selector when it currently points at a
+    // specific chart family; leave "auto" and "none" alone so the
+    // learner keeps their higher-level choice.
+    if (
+      targetChart &&
+      ["p", "c", "u"].includes(currentSpc) &&
+      currentSpc !== targetChart
+    ) {
+      elements.spcSelect.value = targetChart;
+    }
+  }
 }
 
 function updateStateFromControls() {
@@ -478,31 +537,37 @@ function renderApplication() {
 }
 
 function updateSpcCaveat(chartType) {
+  const messages = [];
   const recommended = scenario.surveillance.recommendedChart;
-  let message = "";
 
   if (
     chartType === "c" &&
     recommended &&
     recommended !== "c"
   ) {
-    message =
-      "A c-chart assumes a constant area of opportunity each period. " +
-      "For this organism the denominator varies (e.g. patients screened " +
-      "or bed-days), so c-chart limits can be misleading. Consider " +
-      "viewing the rate or proportion instead.";
-  } else if (
+    messages.push(
+      "A c-chart assumes a constant area of opportunity each period. For this organism the denominator varies (e.g. patients screened or bed-days), so c-chart limits can be misleading. Consider viewing the rate or proportion instead."
+    );
+  }
+
+  if (
     chartType === "p" &&
     scenario.surveillance.availableMeasures &&
     !scenario.surveillance.availableMeasures.includes("proportion")
   ) {
-    message =
-      "A p-chart is being applied to a topic that is normally monitored " +
-      "as counts or rates. The limits may not reflect the process well.";
+    messages.push(
+      "A p-chart is being applied to a topic that is normally monitored as counts or rates. The limits may not reflect the process well."
+    );
   }
 
-  if (message) {
-    elements.spcCaveat.textContent = message;
+  if (chartType === "u") {
+    messages.push(
+      "A u-chart plots the rate and computes limits per period, so weeks with fewer patients at risk get wider limits. When the denominator is stable from week to week, the u-chart and c-chart show the same relative shape but with different y-axis units."
+    );
+  }
+
+  if (messages.length) {
+    elements.spcCaveat.textContent = messages.join(" ");
     elements.spcCaveat.hidden = false;
   } else {
     elements.spcCaveat.textContent = "";
