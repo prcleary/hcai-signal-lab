@@ -4,7 +4,14 @@ const COLOURS = {
   data: "#005eb8",
   smooth: "#330072",
   centre: "#007f3b",
-  warning: "#ed8b00",
+  // Chart 2-SD warning line. Original NHS "warm yellow" #ed8b00 only
+  // reaches ~2.3:1 contrast on a white background, well below the WCAG
+  // 1.4.11 minimum of 3:1 for meaningful graphical objects. The darker
+  // amber below sits at ~5.2:1 while remaining clearly distinct from
+  // the blue data series and the red control-limit lines. The lighter
+  // orange is retained for button backgrounds (which pair with dark
+  // text) via the CSS variable and is unaffected by this change.
+  warning: "#b45c00",
   control: "#d5281b",
   signal: "#d5281b",
   grid: "#d8dde0",
@@ -51,7 +58,7 @@ export function renderChart(
     maximum = minimum + 1;
   }
 
-  const { ticks, minimum: gridMin, maximum: gridMax } =
+  const { ticks, minimum: gridMin, maximum: gridMax, step: gridStep } =
     computeYAxisTicks(
       minimum,
       maximum,
@@ -92,7 +99,8 @@ export function renderChart(
     padding,
     ticks,
     yForValue,
-    integerOnly: options.integerYAxis === true
+    integerOnly: options.integerYAxis === true,
+    step: gridStep
   });
 
   if (options.showThreeSd) {
@@ -279,7 +287,8 @@ function drawGrid({
   padding,
   ticks,
   yForValue,
-  integerOnly
+  integerOnly,
+  step
 }) {
   context.save();
   context.font = "14px Arial";
@@ -303,7 +312,7 @@ function drawGrid({
     context.fillText(
       integerOnly
         ? Math.round(value).toString()
-        : formatNumber(value),
+        : formatAxisLabel(value, step),
       padding.left - 12,
       y
     );
@@ -315,55 +324,54 @@ function drawGrid({
 /**
  * Chooses grid tick values.
  *
- * For count charts we snap to integer nice-steps (1, 2, 5 \u00d7 10\u207f)
- * so the y-axis reads as whole numbers, matching the underlying data,
- * and extend the min/max outwards to the nearest step so every tick is
- * a whole number and no data point falls outside the drawn grid.
+ * We always snap to a "nice" step from the 1/2/2.5/5 x 10^n family so
+ * that rate axes read as round numbers (e.g. 0, 5, 10, 15) and are
+ * directly comparable to similar SPC and epidemiology plots. For count
+ * charts we additionally clamp the step to be >= 1 so that every label
+ * is a whole number matching the underlying discrete counts.
+ *
+ * The min/max are extended outwards to the nearest step so no data
+ * point falls outside the drawn grid and every gridline sits on a
+ * pleasing round value.
  */
 function computeYAxisTicks(minimum, maximum, integerOnly) {
   const targetTickCount = 6;
-  const range = maximum - minimum;
+  const range = Math.max(maximum - minimum, Number.EPSILON);
+  const rawStep = range / targetTickCount;
 
-  if (integerOnly) {
-    const step = niceIntegerStep(range / targetTickCount);
+  const step = integerOnly
+    ? Math.max(1, niceStep(rawStep))
+    : niceStep(rawStep);
 
-    const niceMin = Math.floor(minimum / step) * step;
-    const niceMax = Math.ceil(maximum / step) * step;
-
-    const ticks = [];
-
-    for (
-      let value = niceMin;
-      value <= niceMax + step * 1e-9;
-      value += step
-    ) {
-      ticks.push(Math.round(value));
-    }
-
-    return {
-      ticks,
-      minimum: niceMin,
-      maximum: niceMax === niceMin ? niceMin + step : niceMax
-    };
-  }
+  const niceMin = Math.floor(minimum / step) * step;
+  const niceMax = Math.ceil(maximum / step) * step;
 
   const ticks = [];
 
   for (
-    let index = 0;
-    index <= targetTickCount;
-    index += 1
+    let value = niceMin;
+    value <= niceMax + step * 1e-9;
+    value += step
   ) {
-    ticks.push(
-      minimum + (range * index) / targetTickCount
-    );
+    const snapped = Math.round(value / step) * step;
+    ticks.push(integerOnly ? Math.round(snapped) : snapped);
   }
 
-  return { ticks, minimum, maximum };
+  return {
+    ticks,
+    minimum: niceMin,
+    maximum: niceMax === niceMin ? niceMin + step : niceMax,
+    step
+  };
 }
 
-function niceIntegerStep(rawStep) {
-  if (!Number.isFinite(rawStep) || rawStep <= 1) return 1;
+/**
+ * Returns a "nice" step from the 1, 2, 2.5, 5, 10 x 10^n family, which
+ * are the choices that produce human-friendly axis labels (0, 5, 10,
+ * 15; 0, 2.5, 5, 7.5; 0, 20, 40, 60; etc.).
+ */
+function niceStep(rawStep) {
+  if (!Number.isFinite(rawStep) || rawStep <= 0) return 1;
 
   const magnitude = Math.pow(
     10,
@@ -376,10 +384,33 @@ function niceIntegerStep(rawStep) {
 
   if (normalised <= 1) niceNormalised = 1;
   else if (normalised <= 2) niceNormalised = 2;
+  else if (normalised <= 2.5) niceNormalised = 2.5;
   else if (normalised <= 5) niceNormalised = 5;
   else niceNormalised = 10;
 
-  return Math.max(1, Math.round(niceNormalised * magnitude));
+  return niceNormalised * magnitude;
+}
+
+/**
+ * Formats a numeric axis tick using a precision derived from the step
+ * so that adjacent labels always differ visibly but no false precision
+ * is introduced (e.g. step 5 -> "10", step 0.5 -> "1.5", step 0.05 ->
+ * "0.15"). Trailing zeros after the decimal point are dropped for a
+ * cleaner appearance.
+ */
+function formatAxisLabel(value, step) {
+  if (!Number.isFinite(value)) return "";
+
+  const safeStep = Number.isFinite(step) && step > 0
+    ? step
+    : Math.abs(value) || 1;
+
+  const decimals = Math.max(
+    0,
+    -Math.floor(Math.log10(safeStep) + 1e-9)
+  );
+
+  return value.toFixed(decimals);
 }
 
 function drawSeries(
@@ -617,18 +648,6 @@ function drawNoDataMessage(context, width, height) {
     height / 2
   );
   context.restore();
-}
-
-function formatNumber(value) {
-  if (Math.abs(value) >= 100) {
-    return value.toFixed(0);
-  }
-
-  if (Math.abs(value) >= 10) {
-    return value.toFixed(1);
-  }
-
-  return value.toFixed(2);
 }
 
 export function createChartSummary(

@@ -37,20 +37,6 @@ export function exportChartAsPng(canvas, scenario) {
   }, "image/png");
 }
 
-export function exportScenarioAsJson(scenario) {
-  const json = JSON.stringify(scenario, null, 2);
-
-  const blob = new Blob(
-    [json],
-    { type: "application/json;charset=utf-8" }
-  );
-
-  downloadBlob(
-    blob,
-    `${sanitiseFilename(scenario.id)}.json`
-  );
-}
-
 export function exportPointsAsCsv(points, scenario) {
   const headers = [
     "start_date",

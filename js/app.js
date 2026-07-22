@@ -24,7 +24,6 @@ import {
 
 import {
   exportChartAsPng,
-  exportScenarioAsJson,
   exportPointsAsCsv,
   exportLearningRecordAsHtml
 } from "./export.js";
@@ -126,7 +125,6 @@ function collectElements() {
     "difficultySelect",
     "downloadPngButton",
     "downloadCsvButton",
-    "downloadJsonButton",
     "downloadRecordButton",
     "revealButton",
     "revealContent",
@@ -210,14 +208,6 @@ function addEventListeners() {
         currentAnalysis.points,
         scenario
       );
-    }
-  );
-
-  elements.downloadJsonButton.addEventListener(
-    "click",
-    () => {
-      logAction("exported-json");
-      exportScenarioAsJson(scenario);
     }
   );
 
@@ -1363,8 +1353,6 @@ function formatAction(action) {
       "Exported chart as PNG",
     "exported-csv":
       "Exported displayed data as CSV",
-    "exported-json":
-      "Exported scenario as JSON",
     "exported-record":
       "Saved learning record (HTML)"
   };
