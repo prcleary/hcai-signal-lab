@@ -1,21 +1,42 @@
 // tests/scenarios.smoke.mjs
 //
-// Node smoke test for the scenario generator and tips module.
+// Node smoke test for the scenario generator, statistics pipeline and
+// tips module.
 //
 //   node tests/scenarios.smoke.mjs
 //
-// Assertions:
+// Assertion groups (see the // --- N. -----  section headers below):
 //
-//   1. Every (topic, template) pair in the template registry can be
-//      generated at least once and produces a well-formed scenario with
-//      156 weekly observations per ward (156 * 8 = 1248 rows).
-//   2. Difficulty filtering returns only templates at the requested
-//      difficulty.
-//   3. Every template has a resolvable tip (from js/tips.js) exposing
-//      the full 5-field schema (or the denominator-change/ward-closure
-//      function form which returns one).
-//   4. Every scenario carries the expected schemaVersion, id, seed,
-//      surveillance and groundTruth structure.
+//   1.   Every (topic, template) pair generates a valid scenario
+//        (156 weekly observations × 8 wards = 1248 rows).
+//   2.   Difficulty filtering returns only templates at the requested
+//        difficulty.
+//   3.   Every template has a resolvable tip (from js/tips.js) exposing
+//        the full 5-field schema (or the denominator-change / ward-
+//        closure function form which returns one).
+//   4-8. Template applicability, ward-closure invariants, testing-
+//        reduction visibility and respiratory-HAI onset-bin invariants.
+//   9.   applyHaiCutoff arithmetic on synthetic points.
+//   10-12. Subtype numerator invariants and applySubtypeFilter
+//        arithmetic.
+//   13-14. Device / procedure-cohort scenarios generate valid data,
+//        and stage-7 templates (care bundle, procedure mix shift) are
+//        produced.
+//   15.  Onset-apportionment bins (HOHA / COHA / COCA) sum to
+//        numerator for every apportionment-carrying topic.
+//   16.  applyApportionmentClassification arithmetic on synthetic
+//        points.
+//   17.  Determinism: generateScenario(seed) is a pure function of
+//        seed.
+//   18.  Schema-version consistency between the generator's
+//        scenario.schemaVersion and js/storage.js SCHEMA_VERSION.
+//   19.  SPC-pipeline invariants: prepareAnalysis over every topic
+//        yields finite values and lower3 <= lower2 <= centre <=
+//        upper2 <= upper3 on every point.
+//   20.  Nelson rule 1 (single point beyond 3-SD) fires.
+//   21.  Nelson rule 4 (eight consecutive on one side of centre) fires.
+//   22.  aggregatePoints preserves numerator / denominator totals.
+//   23.  selectControlChart auto-select maps measure -> chart type.
 //
 // The test is intentionally lightweight; it fails fast on the first
 // broken invariant. Use `node --test` style output only if this file
@@ -28,7 +49,20 @@ import {
   INVESTIGATION_TIPS,
   resolveInvestigationTip
 } from "../js/tips.js";
-import { applyHaiCutoff, applySubtypeFilter, applyApportionmentClassification } from "../js/statistics.js";
+import {
+  applyHaiCutoff,
+  applySubtypeFilter,
+  applyApportionmentClassification,
+  aggregatePoints,
+  selectControlChart,
+  detectSignals,
+  prepareAnalysis
+} from "../js/statistics.js";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const TIP_FIELDS = [
   "pattern",
@@ -55,8 +89,8 @@ function assertShape(scenario, context) {
     `${context}: scenario is not an object`
   );
   assert(
-    scenario.schemaVersion === 3,
-    `${context}: schemaVersion should be 3, got ${scenario.schemaVersion}`
+    scenario.schemaVersion === 4,
+    `${context}: schemaVersion should be 4, got ${scenario.schemaVersion}`
   );
   assert(
     typeof scenario.id === "string" && scenario.id.startsWith("scenario-"),
@@ -605,6 +639,273 @@ for (const [classification, expected] of Object.entries(expectedByClassification
     `applyApportionmentClassification must leave points without apportionmentBins unchanged (got ${result[1].numerator})`
   );
 }
+
+// --- 17. Determinism --------------------------------------------------
+//
+// mulberry32 is a fixed 32-bit PRNG and the whole generator is a pure
+// function of the seed. The same seed must therefore return an
+// identical scenario, byte-for-byte, apart from `generatedAt` (a
+// wall-clock timestamp). Verify against a handful of arbitrary seeds
+// so any accidental introduction of Date.now(), Math.random() or a
+// non-deterministic hospital / ward name draw is caught.
+
+for (const seed of [1, 42, 1729, 987654]) {
+  const first = generateScenario(seed);
+  const second = generateScenario(seed);
+
+  const firstCopy = { ...first };
+  const secondCopy = { ...second };
+  delete firstCopy.generatedAt;
+  delete secondCopy.generatedAt;
+
+  assert(
+    JSON.stringify(firstCopy) === JSON.stringify(secondCopy),
+    `generateScenario(${seed}) must be deterministic (excluding generatedAt)`
+  );
+}
+
+// --- 18. Schema-version consistency -----------------------------------
+//
+// The value written by generateScenario() as scenario.schemaVersion
+// MUST equal the SCHEMA_VERSION constant enforced by js/storage.js.
+// If they drift the storage layer silently discards every scenario the
+// generator produces (as happened when the CDI-to-apportionment refactor
+// bumped storage to v4 but left the generator at v3). Parse the two
+// files as text so this check does not itself depend on being able to
+// import storage.js in a Node environment.
+
+const storageSource = readFileSync(
+  resolve(HERE, "../js/storage.js"),
+  "utf8"
+);
+const schemaMatch = storageSource.match(
+  /SCHEMA_VERSION\s*=\s*(\d+)/
+);
+assert(
+  schemaMatch,
+  "js/storage.js should declare a SCHEMA_VERSION constant"
+);
+const storageSchemaVersion = Number(schemaMatch[1]);
+
+const anyScenario = generateScenario(1);
+assert(
+  anyScenario.schemaVersion === storageSchemaVersion,
+  `scenario.schemaVersion (${anyScenario.schemaVersion}) must equal SCHEMA_VERSION in js/storage.js (${storageSchemaVersion}); otherwise every generated scenario is discarded on reload`
+);
+
+// --- 19. SPC-pipeline invariants across every topic -------------------
+//
+// Run prepareAnalysis over one scenario per topic and assert basic
+// numeric invariants on every returned point:
+//   - `value` is either finite or null (no NaN / Infinity leakage);
+//   - control-chart limits satisfy lower3 <= lower2 <= centre
+//     <= upper2 <= upper3;
+//   - proportion values live in [0, 1] before rate-multiplier scaling
+//     (p-chart) and never NaN;
+//   - non-negativity of centre and lower limits (rates / counts /
+//     proportions cannot be negative).
+
+const topicCodesSeen = new Set();
+const allTopicCodes = new Set(Object.keys(SURVEILLANCE_TOPICS));
+
+for (let seed = 1; seed <= 20000 && topicCodesSeen.size < allTopicCodes.size; seed += 1) {
+  const scenario = generateScenario(seed);
+  if (topicCodesSeen.has(scenario.surveillance.code)) continue;
+  topicCodesSeen.add(scenario.surveillance.code);
+
+  const analysis = prepareAnalysis(scenario, {
+    site: "all",
+    ward: "all",
+    subtype: "all",
+    measure: scenario.surveillance.defaultMeasure,
+    timeWindow: 156,
+    aggregation: 1,
+    smoothing: 0,
+    spcType: "auto",
+    haiCutoff: "probable-and-definite",
+    apportionment: "trust-apportioned"
+  });
+
+  assert(
+    ["c", "u", "p", "none"].includes(analysis.chartType),
+    `${scenario.surveillance.code}: unexpected chartType ${analysis.chartType}`
+  );
+
+  for (const point of analysis.points) {
+    if (analysis.chartType === "none") {
+      // No control-chart fields expected; value may be null when
+      // denominator is zero (e.g. CPE screen with no swabs that week).
+      assert(
+        point.value === null || Number.isFinite(point.value),
+        `${scenario.surveillance.code}: value must be finite or null, got ${point.value}`
+      );
+      continue;
+    }
+
+    if (point.value !== null) {
+      assert(
+        Number.isFinite(point.value),
+        `${scenario.surveillance.code}: value must be finite when non-null, got ${point.value}`
+      );
+      assert(
+        point.value >= 0,
+        `${scenario.surveillance.code}: value must be non-negative, got ${point.value}`
+      );
+    }
+
+    assert(
+      Number.isFinite(point.centre) && point.centre >= 0,
+      `${scenario.surveillance.code}: centre must be finite and non-negative, got ${point.centre}`
+    );
+
+    if (point.lower3 !== null) {
+      assert(
+        point.lower3 >= 0,
+        `${scenario.surveillance.code}: lower3 must be non-negative, got ${point.lower3}`
+      );
+      assert(
+        point.lower3 <= point.lower2 + 1e-9,
+        `${scenario.surveillance.code}: lower3 (${point.lower3}) must be <= lower2 (${point.lower2})`
+      );
+      assert(
+        point.lower2 <= point.centre + 1e-9,
+        `${scenario.surveillance.code}: lower2 (${point.lower2}) must be <= centre (${point.centre})`
+      );
+      assert(
+        point.centre <= point.upper2 + 1e-9,
+        `${scenario.surveillance.code}: centre (${point.centre}) must be <= upper2 (${point.upper2})`
+      );
+      assert(
+        point.upper2 <= point.upper3 + 1e-9,
+        `${scenario.surveillance.code}: upper2 (${point.upper2}) must be <= upper3 (${point.upper3})`
+      );
+    }
+  }
+}
+
+for (const code of allTopicCodes) {
+  assert(
+    topicCodesSeen.has(code),
+    `no ${code} scenario produced in 20000 seeds for SPC pipeline invariant check`
+  );
+}
+
+// --- 20. Nelson rule 1 (single point beyond 3-SD) fires ---------------
+
+const rule1Points = [
+  { value: 5,   centre: 5, upper2: 8,   lower2: 2,   upper3: 10, lower3: 0 },
+  { value: 5,   centre: 5, upper2: 8,   lower2: 2,   upper3: 10, lower3: 0 },
+  { value: 12,  centre: 5, upper2: 8,   lower2: 2,   upper3: 10, lower3: 0 }, // above upper3
+  { value: 5,   centre: 5, upper2: 8,   lower2: 2,   upper3: 10, lower3: 0 },
+  { value: -1,  centre: 5, upper2: 8,   lower2: 2,   upper3: 10, lower3: 0 }  // below lower3
+];
+
+const rule1Result = detectSignals(rule1Points);
+
+assert(
+  rule1Result[2].isSignal &&
+    rule1Result[2].signals.some(s => s.includes("Above the upper 3-SD")),
+  "detectSignals should flag a point above upper3 as an SPC signal"
+);
+assert(
+  rule1Result[4].isSignal &&
+    rule1Result[4].signals.some(s => s.includes("Below the lower 3-SD")),
+  "detectSignals should flag a point below lower3 as an SPC signal"
+);
+assert(
+  !rule1Result[0].isSignal && !rule1Result[1].isSignal && !rule1Result[3].isSignal,
+  "detectSignals must not flag in-limit points as SPC signals"
+);
+
+// --- 21. Nelson rule 4 (eight consecutive on one side of centre) ------
+
+const rule4AbovePoints = Array.from({ length: 10 }, (_, i) => ({
+  value: 6 + (i % 2 === 0 ? 0.1 : 0.2), // all above centre, none beyond 3-SD
+  centre: 5,
+  upper2: 8,
+  lower2: 2,
+  upper3: 10,
+  lower3: 0
+}));
+
+const rule4Result = detectSignals(rule4AbovePoints);
+
+// Points 0-6 (fewer than 8 in a row) must not fire rule 4.
+for (let i = 0; i <= 6; i += 1) {
+  assert(
+    !rule4Result[i].signals.some(s => s.includes("Eight consecutive")),
+    `rule 4 must not fire before eight points have accumulated (index ${i})`
+  );
+}
+// Point 7 completes the first run of 8; every subsequent point extends it.
+for (let i = 7; i < rule4Result.length; i += 1) {
+  assert(
+    rule4Result[i].signals.some(s => s.includes("Eight consecutive observations above")),
+    `rule 4 must fire once eight consecutive above-centre points have accumulated (index ${i})`
+  );
+}
+
+const rule4BelowPoints = rule4AbovePoints.map(p => ({
+  ...p,
+  value: 5 - (p.value - 5)
+}));
+const rule4BelowResult = detectSignals(rule4BelowPoints);
+assert(
+  rule4BelowResult[7].signals.some(s => s.includes("Eight consecutive observations below")),
+  "rule 4 must fire symmetrically for consecutive below-centre runs"
+);
+
+// --- 22. aggregatePoints preserves numerator / denominator totals -----
+
+const aggregationInput = Array.from({ length: 10 }, (_, i) => ({
+  date: `2024-01-${String(i * 7 + 1).padStart(2, "0")}`,
+  numerator: i + 1,          // 1..10, sum = 55
+  denominator: 100,
+  bedDays: 100
+}));
+
+for (const groupSize of [1, 2, 4, 5, 13]) {
+  const aggregated = aggregatePoints(aggregationInput, groupSize);
+  const totalNumerator = aggregated.reduce((s, p) => s + p.numerator, 0);
+  const totalDenominator = aggregated.reduce((s, p) => s + p.denominator, 0);
+  assert(
+    totalNumerator === 55,
+    `aggregatePoints(groupSize=${groupSize}): total numerator must be preserved (got ${totalNumerator})`
+  );
+  assert(
+    totalDenominator === 1000,
+    `aggregatePoints(groupSize=${groupSize}): total denominator must be preserved (got ${totalDenominator})`
+  );
+  assert(
+    aggregated.length === Math.ceil(10 / groupSize),
+    `aggregatePoints(groupSize=${groupSize}): expected ${Math.ceil(10 / groupSize)} groups, got ${aggregated.length}`
+  );
+}
+
+// --- 23. selectControlChart auto-select maps measure -> chart ---------
+
+const dummySurveillance = { recommendedChart: "u" };
+
+assert(
+  selectControlChart("auto", dummySurveillance, "count") === "c",
+  "auto + measure=count should select c-chart"
+);
+assert(
+  selectControlChart("auto", dummySurveillance, "rate") === "u",
+  "auto + measure=rate should select u-chart"
+);
+assert(
+  selectControlChart("auto", dummySurveillance, "proportion") === "p",
+  "auto + measure=proportion should select p-chart"
+);
+assert(
+  selectControlChart("p", dummySurveillance, "count") === "p",
+  "explicit chart type must override auto mapping"
+);
+assert(
+  selectControlChart("none", dummySurveillance, "count") === "none",
+  "explicit 'none' must be preserved"
+);
 
 // --- Report ------------------------------------------------------------
 
