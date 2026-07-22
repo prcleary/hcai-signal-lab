@@ -17,14 +17,16 @@ import {
   wasBrowserReload,
   saveCurrentScenario,
   loadCurrentScenario,
+  loadScenarioHistory,
   startNewStoredScenario,
-  restorePreviousScenario
+  restoreScenarioFromHistory
 } from "./storage.js";
 
 import {
   exportChartAsPng,
   exportScenarioAsJson,
-  exportPointsAsCsv
+  exportPointsAsCsv,
+  exportLearningRecordAsHtml
 } from "./export.js";
 
 /**
@@ -113,7 +115,10 @@ function initialiseApp() {
     loadCurrentScenario();
 
   if (wasBrowserReload()) {
-    scenario = generateScenario();
+    scenario = generateScenario(
+      undefined,
+      { difficulty: readSelectedDifficulty() }
+    );
 
     if (storedScenario) {
       startNewStoredScenario(scenario);
@@ -123,7 +128,10 @@ function initialiseApp() {
   } else if (storedScenario) {
     scenario = storedScenario;
   } else {
-    scenario = generateScenario();
+    scenario = generateScenario(
+      undefined,
+      { difficulty: readSelectedDifficulty() }
+    );
     saveCurrentScenario(scenario);
   }
 
@@ -131,6 +139,7 @@ function initialiseApp() {
   populateMeasureControl();
   applyScenarioStateToControls();
   addEventListeners();
+  refreshHistoryDropdown();
   renderApplication();
 }
 
@@ -167,13 +176,15 @@ function collectElements() {
     "actionLog",
 
     "newScenarioButton",
-    "restoreButton",
+    "scenarioHistorySelect",
+    "difficultySelect",
     "downloadPngButton",
     "downloadCsvButton",
     "downloadJsonButton",
-    "saveNotesButton",
+    "downloadRecordButton",
     "revealButton",
-    "revealContent"
+    "revealContent",
+    "revealGate"
   ];
 
   for (const id of ids) {
@@ -207,14 +218,24 @@ function addEventListeners() {
     startNewScenario
   );
 
-  elements.restoreButton.addEventListener(
-    "click",
-    handleRestorePrevious
+  elements.scenarioHistorySelect.addEventListener(
+    "change",
+    handleHistorySelect
   );
 
-  elements.saveNotesButton.addEventListener(
-    "click",
-    saveInterpretation
+  elements.investigateSelect.addEventListener(
+    "change",
+    handleInterpretationChange
+  );
+
+  elements.learnerNotes.addEventListener(
+    "input",
+    handleInterpretationChange
+  );
+
+  elements.learnerNotes.addEventListener(
+    "blur",
+    persistInterpretation
   );
 
   elements.revealButton.addEventListener(
@@ -249,6 +270,34 @@ function addEventListeners() {
     () => {
       logAction("exported-json");
       exportScenarioAsJson(scenario);
+    }
+  );
+
+  elements.downloadRecordButton.addEventListener(
+    "click",
+    () => {
+      logAction("exported-record");
+      exportLearningRecordAsHtml({
+        scenario,
+        canvas: elements.mainChart,
+        currentAnalysis,
+        displayOptions: getDisplayOptions(),
+        spcLabel: getSpcLabel(
+          currentAnalysis.chartType,
+          scenario.surveillance
+        ),
+        denominatorLabel: getDenominatorLabel(
+          currentAnalysis.points,
+          scenario.surveillance,
+          scenario.learnerState.display.aggregation
+        ),
+        yAxisTitle: getYAxisTitle(
+          scenario.learnerState.display.measure,
+          scenario.learnerState.display.aggregation
+        ),
+        investigationTip:
+          INVESTIGATION_TIPS[scenario.groundTruth.templateId] || null
+      });
     }
   );
 }
@@ -509,6 +558,7 @@ function renderApplication() {
   updateSignalSummary();
   updateActionLog();
   updateRevealPanel();
+  updateRevealGate();
 
   elements.smoothingWarning.hidden =
     Number(options.smoothing) === 0;
@@ -648,18 +698,10 @@ function updateChartText(options) {
 }
 
 function updateSignalSummary() {
-  const signalPoints =
-    currentAnalysis.points.filter(
-      point => point.isSignal
-    );
-
   elements.signalSummary.replaceChildren();
 
-  if (
-    currentAnalysis.chartType === "none"
-  ) {
-    const paragraph =
-      document.createElement("p");
+  if (currentAnalysis.chartType === "none") {
+    const paragraph = document.createElement("p");
 
     paragraph.textContent =
       "No control chart is currently selected.";
@@ -668,9 +710,17 @@ function updateSignalSummary() {
     return;
   }
 
-  if (!signalPoints.length) {
-    const paragraph =
-      document.createElement("p");
+  const grouped = groupSignalsByRule(
+    currentAnalysis.points
+  );
+
+  const totalMatched = grouped.reduce(
+    (sum, group) => sum + group.entries.length,
+    0
+  );
+
+  if (!totalMatched) {
+    const paragraph = document.createElement("p");
 
     paragraph.textContent =
       "No SPC rule included in this version was triggered.";
@@ -679,40 +729,195 @@ function updateSignalSummary() {
     return;
   }
 
-  const list = document.createElement("ul");
+  for (const group of grouped) {
+    if (!group.entries.length) continue;
 
-  for (const point of signalPoints) {
-    const item =
-      document.createElement("li");
+    const section = document.createElement("section");
+    section.className = "signal-group";
 
-    item.textContent =
-      `${formatDate(point.date)}: ${
-        point.signals.join("; ")
+    const heading = document.createElement("h4");
+    heading.textContent =
+      `${group.label} — ${
+        group.entries.length
+      } ${
+        group.entries.length === 1 ? "signal" : "signals"
       }`;
+    section.appendChild(heading);
 
-    list.appendChild(item);
+    const description = document.createElement("p");
+    description.className = "signal-group-description";
+    description.textContent = group.explanation;
+    section.appendChild(description);
+
+    const list = document.createElement("ul");
+
+    for (const entry of group.entries) {
+      const item = document.createElement("li");
+
+      const direction = entry.direction
+        ? ` (${entry.direction})`
+        : "";
+
+      const value = Number.isFinite(entry.point.value)
+        ? entry.point.value.toLocaleString("en-GB", {
+            maximumFractionDigits: 3
+          })
+        : "";
+
+      item.textContent =
+        `${formatDate(entry.point.date)}${direction}: ${value}`;
+
+      list.appendChild(item);
+    }
+
+    section.appendChild(list);
+    elements.signalSummary.appendChild(section);
   }
-
-  elements.signalSummary.appendChild(list);
 }
 
-function saveInterpretation() {
+const SIGNAL_RULE_GROUPS = [
+  {
+    key: "beyond3sd",
+    label: "Beyond 3-SD control limits (Nelson rule 1)",
+    explanation:
+      "A single point outside the ±3σ limits is unlikely to arise from common-cause variation alone. Look for a specific cause on or around this period.",
+    matches(signal) {
+      return /3-SD control limit/.test(signal);
+    },
+    direction(signal) {
+      if (/Above/i.test(signal)) return "above";
+      if (/Below/i.test(signal)) return "below";
+      return "";
+    }
+  },
+  {
+    key: "runOfEight",
+    label: "Run of eight on one side of the centre line (Nelson rule 4)",
+    explanation:
+      "Eight consecutive points on the same side of the mean indicate a sustained shift smaller than a 3σ excursion — often the earliest signal of a real change in the process.",
+    matches(signal) {
+      return /Eight consecutive/.test(signal);
+    },
+    direction(signal) {
+      if (/above/i.test(signal)) return "above";
+      if (/below/i.test(signal)) return "below";
+      return "";
+    }
+  }
+];
+
+function groupSignalsByRule(points) {
+  const grouped = SIGNAL_RULE_GROUPS.map(rule => ({
+    ...rule,
+    entries: []
+  }));
+
+  for (const point of points) {
+    if (!point.isSignal) continue;
+
+    for (const signal of point.signals || []) {
+      for (const group of grouped) {
+        if (group.matches(signal)) {
+          group.entries.push({
+            point,
+            direction: group.direction(signal)
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return grouped;
+}
+
+function handleInterpretationChange(event) {
+  // Update in-memory state on every change so the reveal-gate reflects
+  // the current answer + notes length, but only persist on change (for
+  // the select) or on blur (for the textarea) to avoid a localStorage
+  // write for every keystroke.
   scenario.learnerState.investigate =
     elements.investigateSelect.value;
 
   scenario.learnerState.notes =
-    elements.learnerNotes.value.trim();
+    elements.learnerNotes.value;
 
-  logAction("saved-interpretation", {
-    investigate:
-      scenario.learnerState.investigate
-  });
+  updateRevealGate();
+
+  if (event && event.target === elements.investigateSelect) {
+    saveCurrentScenario(scenario);
+  }
+}
+
+function persistInterpretation() {
+  scenario.learnerState.investigate =
+    elements.investigateSelect.value;
+
+  scenario.learnerState.notes =
+    elements.learnerNotes.value;
 
   saveCurrentScenario(scenario);
-  renderApplication();
+}
+
+/**
+ * Reveal is gated behind a completed interpretation. The learner must
+ * (a) choose an investigate answer and (b) write a short note (at least
+ * ~20 characters) before the reveal button becomes clickable.
+ */
+function updateRevealGate() {
+  const answered =
+    (elements.investigateSelect.value || "") !== "";
+  const noteLength =
+    (elements.learnerNotes.value || "").trim().length;
+  const enough = answered && noteLength >= 20;
+  const revealed = scenario.learnerState.revealed;
+
+  if (revealed) {
+    elements.revealButton.disabled = false;
+    elements.revealGate.hidden = true;
+    elements.revealGate.textContent = "";
+    return;
+  }
+
+  elements.revealButton.disabled = !enough;
+
+  if (enough) {
+    elements.revealGate.hidden = true;
+    elements.revealGate.textContent = "";
+    return;
+  }
+
+  const missing = [];
+  if (!answered) {
+    missing.push("choose an investigate answer");
+  }
+  if (noteLength < 20) {
+    missing.push(
+      "write a short interpretation (at least 20 characters)"
+    );
+  }
+
+  elements.revealGate.hidden = false;
+  elements.revealGate.textContent =
+    `To unlock the reveal, ${missing.join(" and ")}.`;
 }
 
 function revealExplanation() {
+  // Belt-and-braces: the button should already be disabled if the gate
+  // is not satisfied, but re-check in case a listener misfired.
+  const answered =
+    (elements.investigateSelect.value || "") !== "";
+  const noteLength =
+    (elements.learnerNotes.value || "").trim().length;
+
+  if (!answered || noteLength < 20) {
+    updateRevealGate();
+    return;
+  }
+
+  // Make sure the current interpretation is saved before we reveal.
+  persistInterpretation();
+
   scenario.learnerState.revealed = true;
 
   logAction("revealed-explanation");
@@ -902,25 +1107,81 @@ function truthHasIntendedSignal(templateId) {
 }
 
 function startNewScenario() {
-  scenario = generateScenario();
+  scenario = generateScenario(
+    undefined,
+    { difficulty: readSelectedDifficulty() }
+  );
 
   startNewStoredScenario(scenario);
 
   populateMeasureControl();
   populateLocationControls();
   applyScenarioStateToControls();
+  refreshHistoryDropdown();
   renderApplication();
 }
 
-function handleRestorePrevious() {
-  const restored =
-    restorePreviousScenario();
+function readSelectedDifficulty() {
+  const value = elements.difficultySelect?.value;
+
+  if (!value || value === "mixed") return null;
+
+  const asNumber = Number(value);
+  return Number.isInteger(asNumber) ? asNumber : null;
+}
+
+function refreshHistoryDropdown() {
+  const select = elements.scenarioHistorySelect;
+  if (!select) return;
+
+  const history = loadScenarioHistory();
+
+  select.replaceChildren();
+
+  const defaultOption = document.createElement("option");
+  defaultOption.value = "";
+  defaultOption.textContent = history.length
+    ? "Past scenarios…"
+    : "No past scenarios yet";
+  defaultOption.selected = true;
+  select.appendChild(defaultOption);
+
+  if (!history.length) {
+    select.disabled = true;
+    return;
+  }
+
+  select.disabled = false;
+
+  for (const past of history) {
+    const option = document.createElement("option");
+    option.value = past.id;
+    const templateName =
+      past.groundTruth?.templateName || "Unknown pattern";
+    const organism = past.surveillance?.organism || "";
+    const revealedMarker = past.learnerState?.revealed
+      ? " (revealed)"
+      : "";
+    option.textContent =
+      `${organism} · ${templateName}${revealedMarker}`;
+    select.appendChild(option);
+  }
+}
+
+function handleHistorySelect(event) {
+  const value = event.target.value;
+  if (!value) return;
+
+  const restored = restoreScenarioFromHistory(value);
+
+  // Reset the select so choosing the same entry twice still works.
+  event.target.value = "";
 
   if (!restored) {
     window.alert(
-      "There is no previous scenario to restore."
+      "The chosen scenario could not be restored."
     );
-
+    refreshHistoryDropdown();
     return;
   }
 
@@ -929,6 +1190,7 @@ function handleRestorePrevious() {
   populateMeasureControl();
   populateLocationControls();
   applyScenarioStateToControls();
+  refreshHistoryDropdown();
   renderApplication();
 }
 
@@ -987,7 +1249,9 @@ function formatAction(action) {
     "exported-csv":
       "Exported displayed data as CSV",
     "exported-json":
-      "Exported scenario as JSON"
+      "Exported scenario as JSON",
+    "exported-record":
+      "Saved learning record (HTML)"
   };
 
   return labels[action.type] || action.type;

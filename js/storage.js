@@ -151,6 +151,46 @@ export function restorePreviousScenario() {
   return previous;
 }
 
+/**
+ * Move a specific scenario from the history stack into current, pushing
+ * the previously-current scenario to the front of history so the learner
+ * can flip back easily.
+ */
+export function restoreScenarioFromHistory(scenarioId) {
+  const current = loadCurrentScenario();
+  const history = loadScenarioHistory();
+
+  const targetIndex = history.findIndex(
+    item => item?.id === scenarioId
+  );
+
+  if (targetIndex === -1) return null;
+
+  const [target] = history.splice(targetIndex, 1);
+
+  if (current && current.id !== target.id) {
+    history.unshift(current);
+  }
+
+  try {
+    localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(history.slice(0, HISTORY_LIMIT))
+    );
+
+    saveCurrentScenario(target);
+  } catch (error) {
+    console.error(
+      "The chosen scenario could not be restored.",
+      error
+    );
+
+    return null;
+  }
+
+  return target;
+}
+
 export function clearStoredScenarios() {
   localStorage.removeItem(CURRENT_KEY);
   localStorage.removeItem(HISTORY_KEY);

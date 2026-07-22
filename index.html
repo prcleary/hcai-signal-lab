@@ -27,9 +27,22 @@
     </div>
 
     <div class="header-actions">
-      <button id="restoreButton" class="button button-secondary" type="button">
-        Restore previous
-      </button>
+      <label for="scenarioHistorySelect" class="visually-hidden">
+        Restore a past scenario
+      </label>
+      <select id="scenarioHistorySelect" class="header-select">
+        <option value="" selected>Past scenarios</option>
+      </select>
+
+      <label for="difficultySelect" class="visually-hidden">
+        Difficulty for the next scenario
+      </label>
+      <select id="difficultySelect" class="header-select">
+        <option value="mixed" selected>Mixed difficulty</option>
+        <option value="1">Introductory</option>
+        <option value="2">Intermediate</option>
+        <option value="3">Advanced</option>
+      </select>
 
       <button id="newScenarioButton" class="button button-primary" type="button">
         New scenario
@@ -167,8 +180,8 @@
               Save CSV
             </button>
 
-            <button id="downloadJsonButton" class="button button-secondary" type="button">
-              Save scenario
+            <button id="downloadJsonButton" class="button button-secondary" type="button" title="Machine-readable scenario data">
+              Save raw data (JSON)
             </button>
           </div>
         </div>
@@ -212,9 +225,11 @@
         placeholder="Record what you noticed, possible explanations and additional information you would request."
       ></textarea>
 
-      <button id="saveNotesButton" class="button button-primary" type="button">
-        Save interpretation
-      </button>
+      <p class="interpretation-hint">
+        Your answer and notes are saved automatically. Complete both to
+        unlock the scenario reveal, then save a learning record for your
+        portfolio.
+      </p>
     </section>
 
     <section class="card reveal-card" aria-labelledby="revealHeading">
@@ -232,7 +247,19 @@
         </button>
       </div>
 
+      <p id="revealGate" class="information-box" hidden></p>
+
       <div id="revealContent" hidden></div>
+
+      <div class="reveal-actions">
+        <button id="downloadRecordButton" class="button button-primary" type="button">
+          Save learning record (HTML)
+        </button>
+        <p class="reveal-actions-hint">
+          The learning record includes the chart, your interpretation and
+          the scenario reveal. Open it in any browser or print to PDF.
+        </p>
+      </div>
     </section>
 
     <details class="card action-log-card">

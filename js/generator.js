@@ -257,18 +257,34 @@ function generateHospital(random) {
   };
 }
 
-function chooseTopicAndTemplate(random) {
-  const topicCodes = Object.keys(SURVEILLANCE_TOPICS);
-  const topicCode = choose(random, topicCodes);
+function chooseTopicAndTemplate(random, difficulty) {
+  const targetDifficulty = Number(difficulty);
+  const applyFilter =
+    Number.isInteger(targetDifficulty) &&
+    targetDifficulty >= 1 &&
+    targetDifficulty <= 3;
 
-  const eligibleTemplates = SCENARIO_TEMPLATES.filter(
-    template => template.appliesTo.includes(topicCode)
-  );
+  // Build the full list of valid (topic, template) pairs, optionally
+  // filtered by learner-selected difficulty. Filtering pairs (rather
+  // than choosing a topic first, then a template) avoids the case
+  // where the chosen topic has no template at the requested difficulty.
+  const pairs = [];
 
-  return {
-    topic: SURVEILLANCE_TOPICS[topicCode],
-    template: choose(random, eligibleTemplates)
-  };
+  for (const [topicCode, topic] of Object.entries(SURVEILLANCE_TOPICS)) {
+    for (const template of SCENARIO_TEMPLATES) {
+      if (!template.appliesTo.includes(topicCode)) continue;
+      if (applyFilter && template.difficulty !== targetDifficulty) continue;
+
+      pairs.push({ topic, template });
+    }
+  }
+
+  // Fall back to any difficulty if the filter matched nothing.
+  if (!pairs.length) {
+    return chooseTopicAndTemplate(random, null);
+  }
+
+  return choose(random, pairs);
 }
 
 /**
@@ -542,12 +558,12 @@ function createExplanation(template, affectedWard) {
 /**
  * Public function used by app.js.
  */
-export function generateScenario(seed = generateSeed()) {
+export function generateScenario(seed = generateSeed(), options = {}) {
   const random = mulberry32(seed);
   const hospital = generateHospital(random);
 
   const { topic, template } =
-    chooseTopicAndTemplate(random);
+    chooseTopicAndTemplate(random, options.difficulty);
 
   const totalWeeks = 156;
   const affectedWard = choose(random, hospital.wards).name;
@@ -617,6 +633,7 @@ export function generateScenario(seed = generateSeed()) {
     groundTruth: {
       templateId: template.id,
       templateName: template.name,
+      difficulty: template.difficulty,
       changePoint,
       changePointDate,
       affectedWard:

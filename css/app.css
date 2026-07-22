@@ -114,6 +114,39 @@ a {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.header-select {
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  font: inherit;
+  color: var(--text);
+}
+
+.header-select:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.header-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* --- Buttons ------------------------------------------------------------ */
@@ -468,10 +501,50 @@ main {
   margin-bottom: 4px;
 }
 
+.signal-group {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.signal-group + .signal-group {
+  margin-top: 12px;
+}
+
+.signal-group h4 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: var(--clinical-dark-blue);
+}
+
+.signal-group-description {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.signal-group ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.signal-group li {
+  margin-bottom: 2px;
+  font-size: 0.9rem;
+}
+
 /* --- Interpretation and analysis-trail cards -------------------------- */
 
 .interpretation-card {
   max-width: 900px;
+}
+
+.interpretation-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .action-log-card {
@@ -595,6 +668,19 @@ main {
 .reveal-header p {
   margin: 4px 0 0;
   color: var(--muted);
+  max-width: 60ch;
+}
+
+.reveal-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.reveal-actions-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
   max-width: 60ch;
 }
 
