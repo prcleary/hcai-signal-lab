@@ -483,22 +483,64 @@ main {
   background: #f7fafc;
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 12px 16px;
+  padding: 0;
 }
 
-.signal-panel h3 {
-  margin: 0 0 6px;
-  font-size: 1rem;
+.signal-panel > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  border-radius: 4px;
   color: var(--clinical-dark-blue);
 }
 
-.signal-panel ul {
-  margin: 6px 0 0;
-  padding-left: 18px;
+.signal-panel > summary::-webkit-details-marker {
+  display: none;
 }
 
-.signal-panel li {
-  margin-bottom: 4px;
+.signal-panel > summary::before {
+  content: "\25B6";
+  color: var(--muted);
+  font-size: 0.8rem;
+  transition: transform 120ms ease;
+  display: inline-block;
+  transform-origin: 40% 55%;
+}
+
+.signal-panel[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.signal-panel > summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.signal-panel-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.signal-panel-count {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.signal-panel-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.signal-panel > #signalSummary {
+  padding: 4px 16px 12px;
+}
+
+.signal-panel > #signalSummary > p:first-child {
+  margin-top: 4px;
 }
 
 .signal-group {

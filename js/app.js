@@ -84,11 +84,32 @@ const INVESTIGATION_TIPS = {
     verify:
       "Compare Count and Percentage positive side by side. A rise in positivity without an increase in cases often reflects a change in who is being screened rather than a rise in prevalence."
   },
-  "denominator-change": {
-    lookFor:
-      "The number of cases falls after the change point, but so does the underlying activity (bed-days or screened patients). Rates stay broadly stable.",
-    verify:
-      "Switch the Measure between 'Count' and 'Rate' / 'Percentage positive'. If the count moves but the rate does not, the change is in the denominator."
+  "denominator-change": scenario => {
+    // Adapt the wording to the topic actually in play: only CPE offers a
+    // 'Percentage positive' measure; CDI and E. coli present a rate
+    // instead. Recommending a measure the learner cannot select would be
+    // confusing.
+    const measures =
+      scenario?.surveillance?.availableMeasures || [];
+    const hasProportion = measures.includes("proportion");
+    const hasRate = measures.includes("rate");
+
+    const alternativeControl = hasProportion
+      ? "'Percentage positive'"
+      : hasRate
+        ? "'Rate'"
+        : "the alternative measure";
+
+    const alternativeName = hasProportion
+      ? "the proportion"
+      : "the rate";
+
+    return {
+      lookFor:
+        "The number of cases falls after the change point, but so does the underlying activity (bed-days or screened patients). The rate or proportion stays broadly stable.",
+      verify:
+        `Switch the Measure between 'Count' and ${alternativeControl}. If the count moves but ${alternativeName} does not, the change is in the denominator.`
+    };
   },
   "reporting-artefact": {
     lookFor:
@@ -170,6 +191,7 @@ function collectElements() {
     "chartSummary",
     "legend",
     "signalSummary",
+    "signalSummaryCount",
 
     "investigateSelect",
     "learnerNotes",
@@ -295,8 +317,7 @@ function addEventListeners() {
           scenario.learnerState.display.measure,
           scenario.learnerState.display.aggregation
         ),
-        investigationTip:
-          INVESTIGATION_TIPS[scenario.groundTruth.templateId] || null
+        investigationTip: resolveInvestigationTip(scenario)
       });
     }
   );
@@ -699,6 +720,7 @@ function updateChartText(options) {
 
 function updateSignalSummary() {
   elements.signalSummary.replaceChildren();
+  setSignalSummaryCount(0);
 
   if (currentAnalysis.chartType === "none") {
     const paragraph = document.createElement("p");
@@ -718,6 +740,8 @@ function updateSignalSummary() {
     (sum, group) => sum + group.entries.length,
     0
   );
+
+  setSignalSummaryCount(totalMatched);
 
   if (!totalMatched) {
     const paragraph = document.createElement("p");
@@ -831,6 +855,37 @@ function groupSignalsByRule(points) {
   return grouped;
 }
 
+function setSignalSummaryCount(total) {
+  if (!elements.signalSummaryCount) return;
+
+  if (!total) {
+    elements.signalSummaryCount.textContent = "";
+    return;
+  }
+
+  elements.signalSummaryCount.textContent =
+    `\u2014 ${total} ${total === 1 ? "signal" : "signals"}`;
+}
+
+/**
+ * Resolves the reveal-time investigation tip for a scenario. Some tips
+ * are plain objects; others are functions that adapt to the topic in
+ * play (for example, only mentioning 'Percentage positive' when the
+ * scenario's surveillance topic actually offers a proportion measure).
+ */
+function resolveInvestigationTip(scenario) {
+  const templateId = scenario?.groundTruth?.templateId;
+  const entry = INVESTIGATION_TIPS[templateId];
+
+  if (!entry) return null;
+
+  if (typeof entry === "function") {
+    return entry(scenario);
+  }
+
+  return entry;
+}
+
 function handleInterpretationChange(event) {
   // Update in-memory state on every change so the reveal-gate reflects
   // the current answer + notes length, but only persist on change (for
@@ -942,7 +997,7 @@ function updateRevealPanel() {
 
   const truth = scenario.groundTruth;
   const tips =
-    INVESTIGATION_TIPS[truth.templateId] || {
+    resolveInvestigationTip(scenario) || {
       lookFor:
         "No specific pattern is described for this template.",
       verify:

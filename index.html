@@ -200,10 +200,14 @@
 
         <div id="legend" class="chart-legend" aria-label="Chart legend"></div>
 
-        <section class="signal-panel" aria-labelledby="signalsHeading">
-          <h3 id="signalsHeading">Signal summary</h3>
+        <details class="signal-panel">
+          <summary>
+            <span class="signal-panel-title">Signal summary</span>
+            <span class="signal-panel-count" id="signalSummaryCount"></span>
+            <span class="signal-panel-hint">click to show or hide</span>
+          </summary>
           <div id="signalSummary"></div>
-        </section>
+        </details>
       </section>
     </div>
 
