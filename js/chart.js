@@ -51,6 +51,16 @@ export function renderChart(
     maximum = minimum + 1;
   }
 
+  const { ticks, minimum: gridMin, maximum: gridMax } =
+    computeYAxisTicks(
+      minimum,
+      maximum,
+      options.integerYAxis === true
+    );
+
+  minimum = gridMin;
+  maximum = gridMax;
+
   const chartWidth =
     width - padding.left - padding.right;
 
@@ -80,9 +90,9 @@ export function renderChart(
     context,
     width,
     padding,
-    minimum,
-    maximum,
-    yForValue
+    ticks,
+    yForValue,
+    integerOnly: options.integerYAxis === true
   });
 
   if (options.showThreeSd) {
@@ -226,25 +236,14 @@ function drawGrid({
   context,
   width,
   padding,
-  minimum,
-  maximum,
-  yForValue
+  ticks,
+  yForValue,
+  integerOnly
 }) {
-  const tickCount = 5;
-
   context.save();
   context.font = "14px Arial";
 
-  for (
-    let tick = 0;
-    tick <= tickCount;
-    tick += 1
-  ) {
-    const value =
-      minimum +
-      ((maximum - minimum) * tick) /
-      tickCount;
-
+  for (const value of ticks) {
     const y = yForValue(value);
 
     context.strokeStyle = COLOURS.grid;
@@ -261,13 +260,85 @@ function drawGrid({
     context.textBaseline = "middle";
 
     context.fillText(
-      formatNumber(value),
+      integerOnly
+        ? Math.round(value).toString()
+        : formatNumber(value),
       padding.left - 12,
       y
     );
   }
 
   context.restore();
+}
+
+/**
+ * Chooses grid tick values.
+ *
+ * For count charts we snap to integer nice-steps (1, 2, 5 \u00d7 10\u207f)
+ * so the y-axis reads as whole numbers, matching the underlying data,
+ * and extend the min/max outwards to the nearest step so every tick is
+ * a whole number and no data point falls outside the drawn grid.
+ */
+function computeYAxisTicks(minimum, maximum, integerOnly) {
+  const targetTickCount = 6;
+  const range = maximum - minimum;
+
+  if (integerOnly) {
+    const step = niceIntegerStep(range / targetTickCount);
+
+    const niceMin = Math.floor(minimum / step) * step;
+    const niceMax = Math.ceil(maximum / step) * step;
+
+    const ticks = [];
+
+    for (
+      let value = niceMin;
+      value <= niceMax + step * 1e-9;
+      value += step
+    ) {
+      ticks.push(Math.round(value));
+    }
+
+    return {
+      ticks,
+      minimum: niceMin,
+      maximum: niceMax === niceMin ? niceMin + step : niceMax
+    };
+  }
+
+  const ticks = [];
+
+  for (
+    let index = 0;
+    index <= targetTickCount;
+    index += 1
+  ) {
+    ticks.push(
+      minimum + (range * index) / targetTickCount
+    );
+  }
+
+  return { ticks, minimum, maximum };
+}
+
+function niceIntegerStep(rawStep) {
+  if (!Number.isFinite(rawStep) || rawStep <= 1) return 1;
+
+  const magnitude = Math.pow(
+    10,
+    Math.floor(Math.log10(rawStep))
+  );
+
+  const normalised = rawStep / magnitude;
+
+  let niceNormalised;
+
+  if (normalised <= 1) niceNormalised = 1;
+  else if (normalised <= 2) niceNormalised = 2;
+  else if (normalised <= 5) niceNormalised = 5;
+  else niceNormalised = 10;
+
+  return Math.max(1, Math.round(niceNormalised * magnitude));
 }
 
 function drawSeries(

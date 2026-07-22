@@ -194,34 +194,27 @@
       </section>
     </div>
 
-    <section class="lower-grid">
-      <section class="card" aria-labelledby="interpretationHeading">
-        <h2 id="interpretationHeading">Your interpretation</h2>
+    <section class="card interpretation-card" aria-labelledby="interpretationHeading">
+      <h2 id="interpretationHeading">Your interpretation</h2>
 
-        <label for="investigateSelect">Would you investigate now?</label>
-        <select id="investigateSelect">
-          <option value="">Select an answer</option>
-          <option value="yes">Yes</option>
-          <option value="no">No</option>
-          <option value="uncertain">Uncertain — more information is needed</option>
-        </select>
+      <label for="investigateSelect">Would you investigate now?</label>
+      <select id="investigateSelect">
+        <option value="">Select an answer</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+        <option value="uncertain">Uncertain — more information is needed</option>
+      </select>
 
-        <label for="learnerNotes">Interpretation and chart annotations</label>
-        <textarea
-          id="learnerNotes"
-          rows="7"
-          placeholder="Record what you noticed, possible explanations and additional information you would request."
-        ></textarea>
+      <label for="learnerNotes">Interpretation and chart annotations</label>
+      <textarea
+        id="learnerNotes"
+        rows="7"
+        placeholder="Record what you noticed, possible explanations and additional information you would request."
+      ></textarea>
 
-        <button id="saveNotesButton" class="button button-primary" type="button">
-          Save interpretation
-        </button>
-      </section>
-
-      <section class="card" aria-labelledby="actionLogHeading">
-        <h2 id="actionLogHeading">Analysis trail</h2>
-        <ol id="actionLog" class="action-log"></ol>
-      </section>
+      <button id="saveNotesButton" class="button button-primary" type="button">
+        Save interpretation
+      </button>
     </section>
 
     <section class="card reveal-card" aria-labelledby="revealHeading">
@@ -241,6 +234,14 @@
 
       <div id="revealContent" hidden></div>
     </section>
+
+    <details class="card action-log-card">
+      <summary>
+        <span class="action-log-summary-title">Analysis trail</span>
+        <span class="action-log-summary-hint">click to show or hide</span>
+      </summary>
+      <ol id="actionLog" class="action-log"></ol>
+    </details>
   </main>
 
   <footer class="app-footer">

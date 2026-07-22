@@ -468,18 +468,55 @@ main {
   margin-bottom: 4px;
 }
 
-/* --- Lower grid: interpretation + action log --------------------------- */
+/* --- Interpretation and analysis-trail cards -------------------------- */
 
-.lower-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 24px;
+.interpretation-card {
+  max-width: 900px;
 }
 
-@media (max-width: 900px) {
-  .lower-grid {
-    grid-template-columns: 1fr;
-  }
+.action-log-card {
+  padding: 0;
+}
+
+.action-log-card > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--clinical-dark-blue);
+}
+
+.action-log-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.action-log-card > summary::before {
+  content: "\25B8";
+  display: inline-block;
+  margin-right: 8px;
+  transition: transform 0.15s ease;
+  color: var(--muted);
+}
+
+.action-log-card[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.action-log-summary-hint {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.action-log-card > .action-log {
+  padding: 4px 24px 20px 42px;
 }
 
 .card {

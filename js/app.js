@@ -525,7 +525,8 @@ function renderApplication() {
       smoothing: options.smoothing,
       yAxisTitle: getYAxisTitle(
         options.measure
-      )
+      ),
+      integerYAxis: options.measure === "count"
     }
   );
 
