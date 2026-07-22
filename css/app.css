@@ -393,21 +393,33 @@ main {
 
 /* HAI-cutoff field is a sub-group inside the Display control-group. It
    is toggled via the `hidden` attribute from app.js when the current
-   topic is not a respiratory-hai one, so no scenario-agnostic styling
-   is needed for the hidden state. */
-.hai-cutoff-field {
-  display: block;
+   topic is not a respiratory-hai one. Use flex-column (matching the
+   surrounding control-group) so the label sits above the select instead
+   of being crammed on the same row, and so the select can honour the
+   panel's inner width instead of expanding to the widest option. Do
+   NOT set `display: block` here: it would out-specify the browser's
+   `[hidden] { display: none }` rule and keep the field visible for
+   non-respiratory topics. */
+.hai-cutoff-field,
+.subtype-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-top: 8px;
   padding-top: 12px;
   border-top: 1px dashed #cfd8e3;
 }
 
-/* Subtype filter is a sub-group inside the Location control-group. */
-.subtype-field {
-  display: block;
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px dashed #cfd8e3;
+.hai-cutoff-field[hidden],
+.subtype-field[hidden] {
+  display: none;
+}
+
+.hai-cutoff-field select,
+.subtype-field select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* --- Chart panel -------------------------------------------------------- */
