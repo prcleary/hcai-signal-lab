@@ -93,6 +93,7 @@ function collectElements() {
     "scenarioTitle",
     "scenarioDescription",
     "scenarioCode",
+    "scenarioCodeCopyButton",
     "hospitalType",
     "currentViewDescription",
 
@@ -192,6 +193,11 @@ function addEventListeners() {
     () => {
       elements.loadCodeInput.classList.remove("is-invalid");
     }
+  );
+
+  elements.scenarioCodeCopyButton.addEventListener(
+    "click",
+    copyScenarioCode
   );
 
   elements.scenarioHistorySelect.addEventListener(
@@ -1370,6 +1376,75 @@ function readSelectedDifficulty() {
 
   const asNumber = Number(value);
   return Number.isInteger(asNumber) ? asNumber : null;
+}
+
+let copyResetTimeout = null;
+
+async function copyScenarioCode() {
+  const button = elements.scenarioCodeCopyButton;
+  const code = elements.scenarioCode.textContent;
+  if (!code) return;
+
+  const ok = await writeToClipboard(code);
+
+  if (!ok) {
+    flashCopyState("Copy failed", false);
+    return;
+  }
+
+  logAction("copied-scenario-code", { code });
+  flashCopyState("Copied", true);
+}
+
+async function writeToClipboard(text) {
+  // Primary path: navigator.clipboard is available on http(s) and works
+  // on localhost. Falls back to a hidden textarea + execCommand for
+  // file:// and older browsers, which some workshop deployments still
+  // use.
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to legacy path
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.top = "0";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  textarea.remove();
+  return ok;
+}
+
+function flashCopyState(label, success) {
+  const button = elements.scenarioCodeCopyButton;
+  if (!button) return;
+
+  if (copyResetTimeout != null) {
+    clearTimeout(copyResetTimeout);
+  }
+
+  button.textContent = label;
+  button.classList.toggle("is-copied", success);
+
+  copyResetTimeout = setTimeout(() => {
+    button.textContent = "Copy";
+    button.classList.remove("is-copied");
+    copyResetTimeout = null;
+  }, 1500);
 }
 
 function refreshHistoryDropdown() {

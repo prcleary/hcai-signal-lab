@@ -309,6 +309,38 @@ main {
   color: var(--text);
 }
 
+.scenario-metadata dd .scenario-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.copy-button {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  vertical-align: baseline;
+}
+
+.copy-button:hover {
+  border-color: var(--clinical-blue, var(--border));
+}
+
+.copy-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.copy-button.is-copied {
+  background: #dcedc8;
+  border-color: #7cb342;
+}
+
 /* --- Workspace: controls + chart --------------------------------------- */
 
 .workspace {
