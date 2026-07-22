@@ -13,6 +13,12 @@
 
   <link rel="stylesheet" href="css/app.css">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#005eb8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="HCAI Lab">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="favicon.svg">
 </head>
 
 <body>
@@ -307,5 +313,26 @@
   </footer>
 
   <script type="module" src="js/app.js"></script>
+
+  <script>
+    /*
+     * Register the service worker so the app loads and runs without a
+     * network on repeat visits. Guarded to only run under http(s):
+     * browsers block service-worker registration on file:// origins,
+     * and file:// is already fully offline by definition.
+     */
+    if (
+      "serviceWorker" in navigator &&
+      (location.protocol === "https:" || location.protocol === "http:")
+    ) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker
+          .register("service-worker.js")
+          .catch(error => {
+            console.warn("Service worker registration failed:", error);
+          });
+      });
+    }
+  </script>
 </body>
 </html>

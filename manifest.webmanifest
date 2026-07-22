@@ -1,0 +1,21 @@
+{
+  "name": "HCAI Signal Lab",
+  "short_name": "HCAI Lab",
+  "description": "Explore variation, trends and outbreak signals using synthetic UK hospital data. Offline-capable training tool; not for clinical use.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f0f4f5",
+  "theme_color": "#005eb8",
+  "lang": "en-GB",
+  "categories": ["education", "medical", "productivity"],
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}
